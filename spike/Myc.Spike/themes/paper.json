@@ -1,0 +1,38 @@
+{
+  "$schema": "https://tui-cs.github.io/Terminal.Gui/schemas/tui-config-schema.json",
+  "Theme": "Paper",
+  "Themes": {
+    "Paper": {
+      "Schemes": {
+        "Base": {
+          "Normal": { "Foreground": "#1F2328", "Background": "#F6F8FA" },
+          "Focus": { "Foreground": "#1F2328", "Background": "#D0E2FF", "Style": "Bold" },
+          "Highlight": { "Foreground": "#0F6E6A", "Background": "#F6F8FA", "Style": "Bold" }
+        },
+        "Dialog": {
+          "Normal": { "Foreground": "#1F2328", "Background": "#FFFFFF" },
+          "Focus": { "Foreground": "#FFFFFF", "Background": "#0F6E6A", "Style": "Bold" }
+        },
+        "Accent": {
+          "Normal": { "Foreground": "#0F6E6A", "Background": "#F6F8FA", "Style": "Bold" }
+        }
+      }
+    },
+    "Graphite": {
+      "Schemes": {
+        "Base": {
+          "Normal": { "Foreground": "#C9CCD1", "Background": "#1E2127" },
+          "Focus": { "Foreground": "#E8EAED", "Background": "#2E3440", "Style": "Bold" },
+          "Highlight": { "Foreground": "#4FB8A8", "Background": "#1E2127", "Style": "Bold" }
+        },
+        "Dialog": {
+          "Normal": { "Foreground": "#C9CCD1", "Background": "#1E2127" },
+          "Focus": { "Foreground": "#1E2127", "Background": "#4FB8A8", "Style": "Bold" }
+        },
+        "Accent": {
+          "Normal": { "Foreground": "#4FB8A8", "Background": "#1E2127", "Style": "Bold" }
+        }
+      }
+    }
+  }
+}

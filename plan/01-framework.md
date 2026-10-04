@@ -1,7 +1,9 @@
 # 01 — TUI framework choice
 
-**Recommendation: [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)** (NuGet `Terminal.Gui`,
-current stable **2.5.0**, MIT).
+**Decision (4 Oct 2026): [Terminal.Gui v2](https://github.com/gui-cs/Terminal.Gui)** (NuGet `Terminal.Gui`
+**2.5.0**, MIT). F-keys arrived in the spike, a 50k-row panel only draws visible rows, and a
+custom panel is the one that can mark and move down. The spike stays in `spike/` until MVP0
+replaces it.
 
 Spectre.Console is excluded per the brief: it is a rendering/prompt library, not a retained-mode
 UI toolkit with focus, layout and modal dialogs. Note that Terminal.Gui now ships an optional
