@@ -148,10 +148,20 @@ a:hover {
 }
 
 .header-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.92rem;
   text-decoration: none;
   border-bottom: 1px solid var(--line);
   padding-bottom: 0.05rem;
+}
+
+.header-link img,
+.run-links a img {
+  width: 1.05em;
+  height: 1.05em;
+  display: block;
 }
 
 .header-link:hover {
@@ -205,7 +215,7 @@ h2 {
 }
 
 .hero-figure {
-  margin: 2.75rem 0 0;
+  margin: 2.75rem auto 0;
 }
 
 .hero-figure img {
@@ -229,7 +239,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
-  margin: 2.25rem 0 0;
+  margin: 2.25rem auto 0;
   padding: 1.25rem 0 0;
   border-top: 1px solid var(--line);
   list-style: none;
@@ -539,6 +549,9 @@ section[id] {
 }
 
 .run-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-weight: 600;
 }
 
