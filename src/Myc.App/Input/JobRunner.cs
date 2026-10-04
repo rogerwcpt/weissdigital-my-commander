@@ -11,11 +11,13 @@ namespace Myc.App.Input;
 internal sealed class JobRunner
 {
     private readonly IApplication _app;
+    private readonly Func<bool> _confirmOverwrite;
     private int _running;
 
-    public JobRunner(IApplication app)
+    public JobRunner(IApplication app, Func<bool> confirmOverwrite)
     {
         _app = app;
+        _confirmOverwrite = confirmOverwrite;
     }
 
     public bool IsRunning => _running > 0;
@@ -32,7 +34,7 @@ internal sealed class JobRunner
         bool open = false;
         bool finished = false;
         var dialog = new ProgressDialog(title, () => cancel.Cancel());
-        var callbacks = new DialogCallbacks(_app);
+        var callbacks = new DialogCallbacks(_app, _confirmOverwrite);
         Task<JobResult> task = Task.Run(() => job.RunAsync(new UiProgress(_app, dialog.Apply), callbacks, cancel.Token));
 
         void Complete(Task<JobResult> done)
@@ -118,10 +120,20 @@ internal sealed class JobRunner
         public void Report(JobProgress value) => app.Invoke(() => apply(value));
     }
 
-    private sealed class DialogCallbacks(IApplication app) : IJobCallbacks
+    private sealed class DialogCallbacks(IApplication app, Func<bool> confirmOverwrite) : IJobCallbacks
     {
         public ValueTask<ConflictChoice> AskConflict(ConflictQuestion question, CancellationToken cancellationToken)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return new ValueTask<ConflictChoice>(ConflictChoice.Cancel);
+            }
+
+            if (!confirmOverwrite())
+            {
+                return new ValueTask<ConflictChoice>(ConflictChoice.Overwrite);
+            }
+
             var answer = new TaskCompletionSource<ConflictChoice>(TaskCreationOptions.RunContinuationsAsynchronously);
             app.Invoke(() =>
             {

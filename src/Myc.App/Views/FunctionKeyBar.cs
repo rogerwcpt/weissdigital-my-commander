@@ -18,7 +18,14 @@ internal static class FunctionKeyBar
         Shortcut[] keys = CommandCatalog.Bar.Select(spec =>
         {
             Action? action = spec.Available ? () => invoke(spec.Command) : null;
-            return Item(KeyMap.ToGui(spec.Keys[0]), spec.Label, action);
+            Shortcut shortcut = Item(KeyMap.ToGui(spec.Keys[0]), spec.Label, action);
+            if (spec.Command == MycCommand.Menu)
+            {
+                // F9 belongs to the menu command. Leaving it bound here as well toggles the bar twice.
+                shortcut.HotKeyBindings.Remove(shortcut.Key);
+            }
+
+            return shortcut;
         }).ToArray();
 
         var bar = new FlexBar(keys)

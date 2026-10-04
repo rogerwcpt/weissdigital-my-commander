@@ -1,7 +1,9 @@
 using Myc.App.Theming;
 using Myc.App.Views;
 using Myc.Core.Commands;
+using Myc.Core.Configuration;
 using Myc.Core.FileSystem;
+using Myc.Core.Sorting;
 using Myc.Core.Operations;
 using Myc.Core.Platform;
 using Myc.Core.Selection;
@@ -13,8 +15,10 @@ using Terminal.Gui.Views;
 namespace Myc.App.Input;
 
 /// <summary>
-/// App-wide keys: F1, Ctrl+R, and the Esc / Option digit fallbacks.
+/// App-wide keys: F9 opens the menu, F1, Ctrl+R, and the Esc / Option digit fallbacks.
 /// Esc followed by anything other than a digit clears marks, then that key is handled normally.
+/// While the menu is open, Esc and F9 close it and every other key stays with the menu.
+/// While a dialog is open, Esc closes it as Cancel and does not run the confirming button.
 /// </summary>
 internal sealed class CommandRouter
 {
@@ -25,6 +29,10 @@ internal sealed class CommandRouter
     private readonly FilePanelView _right;
     private readonly JobRunner _jobs;
     private readonly ITrash _trash = new MacTrash();
+    private readonly List<string> _gotoHistory = [];
+    private Func<ConfirmationSettings> _confirm = () => ConfirmationSettings.Default;
+    private FilePanelView _active;
+    private AppMenu? _menu;
     private bool _escapePending;
 
     public CommandRouter(IApplication app, Window window, IFileSystem files, FilePanelView left, FilePanelView right)
@@ -34,11 +42,23 @@ internal sealed class CommandRouter
         _files = files;
         _left = left;
         _right = right;
-        _jobs = new JobRunner(app);
+        _active = left;
+        _jobs = new JobRunner(app, () => _confirm().Overwrite);
+        left.BecameFocused += panel => _active = panel;
+        right.BecameFocused += panel => _active = panel;
     }
+
+    public void UseMenu(AppMenu menu) => _menu = menu;
+
+    public void UseConfirmations(Func<ConfirmationSettings> confirm) => _confirm = confirm;
 
     public void Invoke(MycCommand command)
     {
+        if (command != MycCommand.Menu)
+        {
+            _menu?.Close();
+        }
+
         switch (command)
         {
             case MycCommand.Help:
@@ -64,6 +84,62 @@ internal sealed class CommandRouter
                 break;
             case MycCommand.PermanentDelete:
                 Delete(permanent: true);
+                break;
+            case MycCommand.Menu:
+                FilePanelView current = ActivePanel();
+                _menu?.Reflect(current.Sort, current.SortDescending, current.ShowHidden, _confirm());
+                _menu?.Toggle();
+                break;
+            case MycCommand.SortName:
+                ActivePanel().SortBy(PanelSort.Name);
+                break;
+            case MycCommand.SortExtension:
+                ActivePanel().SortBy(PanelSort.Extension);
+                break;
+            case MycCommand.SortSize:
+                ActivePanel().SortBy(PanelSort.Size);
+                break;
+            case MycCommand.SortModified:
+                ActivePanel().SortBy(PanelSort.Modified);
+                break;
+            case MycCommand.ToggleHidden:
+                ActivePanel().ToggleHidden();
+                break;
+            case MycCommand.SelectPattern:
+                SelectByPattern(add: true);
+                break;
+            case MycCommand.DeselectPattern:
+                SelectByPattern(add: false);
+                break;
+            case MycCommand.InvertSelection:
+                ActivePanel().InvertMarks();
+                break;
+            case MycCommand.SelectAll:
+                ActivePanel().SelectAll();
+                break;
+            case MycCommand.GoToPath:
+                GoToPath();
+                break;
+            case MycCommand.SameDirectory:
+                SameDirectory();
+                break;
+            case MycCommand.SwapPanels:
+                SwapPanels();
+                break;
+            case MycCommand.Reveal:
+                ActivePanel().RevealCursor();
+                break;
+            case MycCommand.Refresh:
+                ActivePanel().Refresh();
+                break;
+            case MycCommand.ClearMarks:
+                ActivePanel().ClearMarks();
+                break;
+            case MycCommand.Mark:
+                ActivePanel().ToggleMark();
+                break;
+            case MycCommand.Activate:
+                ActivePanel().ActivateSelection();
                 break;
         }
     }
@@ -94,10 +170,45 @@ internal sealed class CommandRouter
         _app.Run(dialog);
     }
 
+    /// <summary>
+    /// Esc on a dialog leaves <see cref="Dialog.Result"/> unset, which every prompt already treats as Cancel.
+    /// A progress dialog stays open and stops the job, the same as its Cancel button.
+    /// </summary>
+    private void DismissDialog()
+    {
+        if (_app.TopRunnable is ProgressDialog progress)
+        {
+            progress.Cancel();
+            return;
+        }
+
+        if (_app.TopRunnable is Runnable runnable)
+        {
+            runnable.RequestStop();
+        }
+    }
+
     private void OnKeyDown(object? sender, Key key)
     {
         if (!ReferenceEquals(_app.TopRunnable, _window))
         {
+            if (key == Key.Esc)
+            {
+                key.Handled = true;
+                DismissDialog();
+            }
+
+            return;
+        }
+
+        if (_menu is { IsOpen: true })
+        {
+            if (key == Key.Esc || key == Key.F9)
+            {
+                key.Handled = true;
+                _menu.Close();
+            }
+
             return;
         }
 
@@ -148,7 +259,26 @@ internal sealed class CommandRouter
         if (pressed == KeyToken.CtrlR)
         {
             key.Handled = true;
-            ActivePanel()?.Refresh();
+            ActivePanel().Refresh();
+            return;
+        }
+
+        if (pressed == KeyToken.F9)
+        {
+            key.Handled = true;
+            Invoke(MycCommand.Menu);
+            return;
+        }
+
+        if (pressed is KeyToken.CtrlF3 or KeyToken.CtrlF4 or KeyToken.CtrlF5 or KeyToken.CtrlF6 or KeyToken.AltPeriod
+            or KeyToken.Plus or KeyToken.Minus or KeyToken.Star or KeyToken.CtrlA
+            or KeyToken.CtrlG or KeyToken.CtrlU or KeyToken.AltEquals or KeyToken.CtrlO)
+        {
+            if (CommandCatalog.Find(pressed) is { Available: true } spec)
+            {
+                key.Handled = true;
+                Invoke(spec.Command);
+            }
         }
     }
 
@@ -160,6 +290,75 @@ internal sealed class CommandRouter
         }
 
         Invoke(spec.Command);
+    }
+
+    private void GoToPath()
+    {
+        FilePanelView panel = ActivePanel();
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        GoToAnswer? answer = GoToPrompt.Ask(_app, _files, panel.Directory, home, panel.ShowHidden, _gotoHistory);
+        if (answer is not { } chosen)
+        {
+            return;
+        }
+
+        panel.Open(chosen.Directory, chosen.SelectName);
+        RememberPath(chosen.Directory);
+    }
+
+    private void SameDirectory()
+    {
+        FilePanelView active = ActivePanel();
+        FilePanelView other = ReferenceEquals(active, _left) ? _right : _left;
+        string? name = active.CursorEntry is { IsParent: false } entry ? entry.Name : null;
+        other.Open(active.Directory, name);
+    }
+
+    private void SwapPanels()
+    {
+        string leftDirectory = _left.Directory;
+        string rightDirectory = _right.Directory;
+        string? leftName = _left.CursorEntry?.Name;
+        string? rightName = _right.CursorEntry?.Name;
+        _left.Open(rightDirectory, rightName);
+        _right.Open(leftDirectory, leftName);
+    }
+
+    private void RememberPath(string directory)
+    {
+        _gotoHistory.RemoveAll(path => string.Equals(path, directory, StringComparison.OrdinalIgnoreCase));
+        _gotoHistory.Insert(0, directory);
+        if (_gotoHistory.Count > 16)
+        {
+            _gotoHistory.RemoveAt(_gotoHistory.Count - 1);
+        }
+    }
+
+    private void SelectByPattern(bool add)
+    {
+        if (ActivePanel() is not { } panel)
+        {
+            return;
+        }
+
+        string? pattern = PatternPrompt.Ask(
+            _app,
+            add ? "Select" : "Deselect",
+            add ? "Select" : "Deselect",
+            panel.Entries);
+        if (pattern is null)
+        {
+            return;
+        }
+
+        if (add)
+        {
+            panel.SelectMatching(pattern);
+        }
+        else
+        {
+            panel.DeselectMatching(pattern);
+        }
     }
 
     private void Rename()
@@ -275,7 +474,9 @@ internal sealed class CommandRouter
             return;
         }
 
-        string? destination = TransferPrompt.Ask(_app, copy ? "Copy" : "Move", selection.Length, Other(panel).Directory);
+        string? destination = _confirm().Transfer
+            ? TransferPrompt.Ask(_app, copy ? "Copy" : "Move", selection.Length, Other(panel).Directory)
+            : Other(panel).Directory;
         if (destination is null)
         {
             return;
@@ -335,7 +536,9 @@ internal sealed class CommandRouter
             return;
         }
 
-        if (!DeletePrompt.Ask(_app, permanent, selection.Select(entry => entry.Name).ToArray()))
+        // Shift+F8 always asks. Trash asks only while Confirm before → Delete is on.
+        if ((permanent || _confirm().Delete)
+            && !DeletePrompt.Ask(_app, permanent, selection.Select(entry => entry.Name).ToArray()))
         {
             return;
         }
@@ -430,5 +633,17 @@ internal sealed class CommandRouter
         }
     }
 
-    private FilePanelView? ActivePanel() => _window.MostFocused as FilePanelView;
+    private FilePanelView ActivePanel()
+    {
+        if (_left.HasFocus)
+        {
+            _active = _left;
+        }
+        else if (_right.HasFocus)
+        {
+            _active = _right;
+        }
+
+        return _active;
+    }
 }

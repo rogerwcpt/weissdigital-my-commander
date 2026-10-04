@@ -2,20 +2,20 @@
 
 Ordered by value; each milestone is meant to be shippable on its own.
 
-## MVP2 — Theme selection
+## MVP2 — User themes
 
-- **Options → Theme…** opens a picker with a **live preview** (the panels re-theme as you move
-  through the list; `Esc` reverts, `Enter` keeps it).
-- **Built-in themes:**
-  - **Graphite**: the default dark theme with a teal accent.
-  - **Paper**: a light theme for light terminal profiles.
-  - **Terminal palette**: uses only the 16 ANSI colours, so it automatically matches whatever
-    theme your terminal has (the most "native" option).
-  - **High contrast**: for accessibility and bright environments.
-  - Optionally a **Retro** theme, a respectful nod to NC with muted colours, never the default.
+MVP1 already ships Options → Theme… for Graphite, Paper, and Terminal.Gui's built-in themes.
+What remains:
+
+- **Live preview:** the panels re-theme as you move through the list; `Esc` reverts, `Enter`
+  keeps it.
+- **More myc themes:** a terminal-palette theme (the 16 ANSI colours, so it follows the
+  terminal), a high-contrast theme, and optionally a muted Retro theme. Retro is never the
+  default.
 - **User themes:** JSON files in `~/.config/myc/themes/`, using the same role names as the
   built-ins (background, text, directory, cursor, marked, accent, danger, border-active,
-  border-inactive, and so on). Hot-reloaded when the file changes.
+  border-inactive, and so on). Hot-reloaded when the file changes. `SwitchTheme` will not see
+  these names; they load the same way Graphite and Paper do.
 - **Auto light/dark:** optionally follow macOS appearance by mapping to a light/dark theme pair.
 
 ## MVP3 — Panel modes
@@ -40,6 +40,13 @@ A common pattern: list on the left, preview on the right, following the left pan
    - macOS extras: Finder tags, quarantine flag (`com.apple.quarantine`), and "Where from"
      (download URL) from extended attributes.
 
+## MVP4 — Terminal panel (proposed)
+
+A panel mode that hosts a real terminal, so a shell, Claude Code, or Codex runs beside the
+file list. It also adds a full-screen shell hand-off and a way to send marked files to the
+agent's prompt. Research, risks, and open decisions are in [06-mvp4.md](06-mvp4.md). It is
+not approved yet and is gated by a spike.
+
 ## Later candidates (to pick from, not committed)
 
 | Area | Ideas |
@@ -59,6 +66,8 @@ A common pattern: list on the left, preview on the right, following the left pan
 ## Non-goals
 
 - Becoming Midnight Commander: no built-in shell, no user-menu scripting language, no FTP-era
-  baggage.
+  baggage. MVP4 proposes narrowing "no built-in shell" to "no command line under the panels
+  and no subshell tricks", so that a panel may host a real terminal. See
+  [06-mvp4.md](06-mvp4.md#open-decisions).
 - Drawing a fake desktop GUI inside the terminal. It should look like a well-made terminal app,
   not a window manager.

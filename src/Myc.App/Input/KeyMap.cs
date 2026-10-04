@@ -27,6 +27,75 @@ internal static class KeyMap
             return KeyToken.CtrlR;
         }
 
+        if (key == Key.F3.WithCtrl)
+        {
+            return KeyToken.CtrlF3;
+        }
+
+        if (key == Key.F4.WithCtrl)
+        {
+            return KeyToken.CtrlF4;
+        }
+
+        if (key == Key.F5.WithCtrl)
+        {
+            return KeyToken.CtrlF5;
+        }
+
+        if (key == Key.F6.WithCtrl)
+        {
+            return KeyToken.CtrlF6;
+        }
+
+        if (key == new Key('.').WithAlt)
+        {
+            return KeyToken.AltPeriod;
+        }
+
+        if (key == Key.A.WithCtrl && !key.IsAlt && !key.IsShift)
+        {
+            return KeyToken.CtrlA;
+        }
+
+        if (key == Key.G.WithCtrl && !key.IsAlt && !key.IsShift)
+        {
+            return KeyToken.CtrlG;
+        }
+
+        if (key == Key.U.WithCtrl && !key.IsAlt && !key.IsShift)
+        {
+            return KeyToken.CtrlU;
+        }
+
+        if (key == Key.O.WithCtrl && !key.IsAlt && !key.IsShift)
+        {
+            return KeyToken.CtrlO;
+        }
+
+        if (key == new Key('=').WithAlt)
+        {
+            return KeyToken.AltEquals;
+        }
+
+        if (!key.IsCtrl && !key.IsAlt)
+        {
+            int rune = key.AsRune.Value;
+            if (rune == '+')
+            {
+                return KeyToken.Plus;
+            }
+
+            if (rune == '-')
+            {
+                return KeyToken.Minus;
+            }
+
+            if (rune == '*')
+            {
+                return KeyToken.Star;
+            }
+        }
+
         if (key.IsCtrl || key.IsAlt || key.IsShift)
         {
             return null;

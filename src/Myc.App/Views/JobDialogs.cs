@@ -133,14 +133,17 @@ internal sealed class ProgressDialog : Dialog
     private readonly Label _current;
     private readonly ProgressBar _bar;
     private readonly Label _detail;
+    private readonly Action _cancel;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private JobProgress _latest;
+    private bool _cancelled;
 
     public ProgressDialog(string title, Action cancel)
     {
         Title = title;
         Width = 62;
         Height = 8;
+        _cancel = cancel;
         SetScheme(Graphite.Bar);
         _current = new Label { Text = "Scanning…", X = 1, Y = 0, Width = Dim.Fill(1) };
         _bar = new ProgressBar { X = 1, Y = 1, Width = Dim.Fill(1), Height = 1, Fraction = 0 };
@@ -149,12 +152,31 @@ internal sealed class ProgressDialog : Dialog
         var button = new Button { Text = "Cancel", IsDefault = true, HotKey = Key.Empty };
         button.Accepting += (_, args) =>
         {
-            cancel();
-            _current.Text = "Cancelling…";
+            Cancel();
             args.Handled = true;
         };
         AddButton(button);
         Initialized += (_, _) => Apply(_latest);
+    }
+
+    /// <summary>Esc and the Cancel button. The dialog stays up until the job actually stops.</summary>
+    public void Cancel()
+    {
+        if (_cancelled)
+        {
+            return;
+        }
+
+        _cancelled = true;
+        try
+        {
+            _cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        _current.Text = "Cancelling…";
     }
 
     public void Apply(JobProgress progress)

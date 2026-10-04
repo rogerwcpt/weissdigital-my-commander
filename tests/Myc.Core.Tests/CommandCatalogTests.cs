@@ -50,14 +50,26 @@ public class CommandCatalogTests
         string help = CommandCatalog.HelpText();
 
         Assert.Contains("F5   Copy", help);
+        Assert.Contains("F9   Menu", help);
+        Assert.True(CommandCatalog.Find(KeyToken.F9)!.Available);
         Assert.Contains("F10  Quit", help);
         Assert.Contains("Esc, then 1-9 or 0", help);
+        Assert.Contains("Esc closes a dialog", help);
         Assert.Contains("Option+digit", help);
         Assert.Contains("Shift+F8", help);
         Assert.Contains("Ctrl+R", help);
+        Assert.Contains("Ctrl+F3", help);
+        Assert.Contains("Alt+.", help);
         Assert.Contains("Clear marks", help);
+        Assert.Contains("Ctrl+A", help);
+        Assert.Contains("matching a pattern", help);
+        Assert.Contains("Ctrl+G", help);
+        Assert.Contains("Alt+=", help);
+        Assert.Contains("Ctrl+U", help);
+        Assert.Contains("Ctrl+O", help);
+        Assert.Contains("Show this item in Finder", help);
 
         int lines = help.Split('\n').Length;
-        Assert.InRange(lines, 10, 16);
+        Assert.InRange(lines, 10, 36);
     }
 }

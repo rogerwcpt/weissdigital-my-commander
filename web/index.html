@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>myc — My Commander</title>
+  <meta name="description" content="myc is a dual-panel terminal file manager in the Norton Commander line. Simpler than Midnight Commander, and a quiet companion to Claude Code, Codex, Pi, and GitHub Copilot.">
+  <meta name="theme-color" content="#f6f4ef">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,560&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="mark" href="#top">
+        <span class="mark-panels" aria-hidden="true"><span></span><span></span></span>
+        <span class="mark-name">myc<small>My Commander</small></span>
+      </a>
+      <a class="header-link" href="https://github.com/rogerwcpt/weissdigital-my-commander">Source</a>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero" id="top">
+      <div class="wrap">
+        <p class="kicker">A file manager for the terminal</p>
+        <h1>Two panels.<br>The keys you already know.</h1>
+        <p class="lede">
+          myc is My Commander. It keeps the Norton Commander screen — a directory on the left, a directory on the right, and a function-key bar along the bottom — and it is simpler than Midnight Commander, on purpose. The command line is crowded again. myc is the companion that just moves the files.
+        </p>
+      </div>
+
+      <figure class="hero-figure wrap-wide">
+        <img src="img/main.png" width="3394" height="2214" alt="myc in a macOS terminal: two file panels side by side, the File Select Panel Options menu, and the F1 to F10 bar along the bottom.">
+        <figcaption>Graphite, the default theme. The bright border is the panel that has the keyboard.</figcaption>
+      </figure>
+
+      <ul class="facts wrap">
+        <li><span>Layout</span> Two panels. Tab switches. You see the destination before you copy.</li>
+        <li><span>Keys</span> F5 copies, F6 moves, F8 sends the selection to Trash.</li>
+        <li><span>Manners</span> Clear dialogs, a short menu, and the screen restored when you quit.</li>
+      </ul>
+    </section>
+
+    <section class="lineage" id="lineage" aria-labelledby="lineage-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="lineage-title">The layout that stuck.</h2>
+          <p>
+            Norton Commander made the job obvious in 1986: look at both places, mark what you need, and act. That picture has not been improved on. Midnight Commander carried it forward and kept adding. myc stops at the picture.
+          </p>
+        </div>
+
+        <div class="eras">
+          <article class="era-nc">
+            <p class="year">1986</p>
+            <h3>Norton Commander</h3>
+            <p>The original. Two panels, ten function keys, blue and yellow. F5 copied, F8 deleted, Tab changed sides. The habits are still in people’s hands.</p>
+          </article>
+          <article class="era-mc">
+            <p class="year">1994</p>
+            <h3>Midnight Commander</h3>
+            <p>The portable descendant, and a large one: a shell, a viewer, an editor, archives, FTP, and a user menu you can script. Capable, and a lot to carry.</p>
+          </article>
+          <article class="era-myc">
+            <p class="year">Today</p>
+            <h3>myc</h3>
+            <p>The same two panels and the same keys. Four short menus — File, Select, Panel, Options — and dialogs that say what they will do. No shell inside the file manager.</p>
+          </article>
+        </div>
+
+        <p class="pull">F5 still copies. F6 moves. F8 deletes. Tab still changes sides.</p>
+      </div>
+    </section>
+
+    <section class="shines" id="shines" aria-labelledby="shines-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="shines-title">Where it shines.</h2>
+          <p>
+            The point of a smaller commander is that the everyday moves stay fast, and the dangerous ones stay obvious. These are the ones myc is built around.
+          </p>
+        </div>
+
+        <div class="shines-grid">
+          <article class="shine">
+            <h3>Both directories, on screen.</h3>
+            <p>Copy and move go to the other panel, so you are looking at the destination when you confirm. <code>Alt+=</code> shows the current folder on the other side. <code>Ctrl+U</code> swaps the two. The active panel wears the brighter border.</p>
+          </article>
+          <article class="shine">
+            <h3>Mark, then act.</h3>
+            <p>Space marks the row under the cursor. <code>+</code> selects a pattern such as <code>*.jpg</code> and counts the matches as you type; <code>−</code> clears that pattern. With nothing marked, the command uses the cursor.</p>
+          </article>
+          <article class="shine">
+            <h3>Trash, unless you insist.</h3>
+            <p>F8 moves the selection to the macOS Trash. <code>Shift+F8</code> deletes permanently, and it asks more firmly. Esc leaves a dialog without taking the action. If a copy or a delete is already running, Esc cancels it.</p>
+          </article>
+          <article class="shine">
+            <h3>A good guest in the terminal.</h3>
+            <p>Graphite is the default: dark, neutral, teal only where it means something. Paper is the light theme. Set <code>NO_COLOR</code> and myc keeps the terminal’s own colours — marks stay a glyph, not only a tint. Quit, and the screen is put back.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="companion" id="companion" aria-labelledby="companion-title">
+      <div class="wrap">
+        <div class="band-head">
+          <p class="kicker">The command line came back</p>
+          <h2 id="companion-title">A small program for a busy terminal.</h2>
+          <p>
+            Claude Code, Codex, Pi, and GitHub Copilot have made the terminal a place people stay. They write, they run, they range across a repository. Comparing two directories, and moving a marked set of files, is still a file manager’s job.
+          </p>
+          <p>
+            myc is the companion for that moment. Open it in the same window, do the file work, and leave with F10 or <code>Ctrl+Q</code>. The agent keeps the session. You keep the Norton keys.
+          </p>
+        </div>
+
+        <ul class="company" aria-label="Tools that share the terminal">
+          <li>Claude Code</li>
+          <li>Codex</li>
+          <li>Pi</li>
+          <li>GitHub Copilot</li>
+        </ul>
+        <p class="alongside">alongside <strong>myc</strong></p>
+      </div>
+    </section>
+
+    <section class="keys" id="keys" aria-labelledby="keys-title">
+      <div class="wrap">
+        <h2 id="keys-title">The bar is the interface.</h2>
+        <p class="lede lede-tight">F9 opens the menu, and every item shows its shortcut, so the menu is also the cheat sheet. There is no separate Left and Right menu. Panel means the panel you are in.</p>
+
+        <div class="fnbar" role="list">
+          <div role="listitem"><span>F1</span><b>Help</b></div>
+          <div role="listitem"><span>F2</span><b>Rename</b></div>
+          <div class="reserved" role="listitem"><span>F3</span><b>—</b></div>
+          <div class="reserved" role="listitem"><span>F4</span><b>—</b></div>
+          <div role="listitem"><span>F5</span><b>Copy</b></div>
+          <div role="listitem"><span>F6</span><b>Move</b></div>
+          <div role="listitem"><span>F7</span><b>MkDir</b></div>
+          <div role="listitem"><span>F8</span><b>Delete</b></div>
+          <div role="listitem"><span>F9</span><b>Menu</b></div>
+          <div role="listitem"><span>F10</span><b>Quit</b></div>
+        </div>
+        <p class="key-note">F3 and F4 stay on the bar, dimmed, until a viewer and an editor exist. The row does not grow a hole in the meantime. On a Mac, Esc then a digit does the same as the function key.</p>
+      </div>
+    </section>
+
+    <section class="run" id="run" aria-labelledby="run-title">
+      <div class="wrap run-grid">
+        <div>
+          <h2 id="run-title">The command is myc.</h2>
+          <p>The first launch opens the current directory on the left and your home folder on the right. Later launches reopen the folders you left. Config lives in <code>~/.config/myc/</code>.</p>
+          <div class="run-links">
+            <a href="https://github.com/rogerwcpt/weissdigital-my-commander">View the source</a>
+          </div>
+        </div>
+        <pre class="command"><span class="prompt">$</span> dotnet run --project src/Myc.App</pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>myc · My Commander</p>
+    <p>Weiss Digital · a dual-panel file manager for the macOS terminal</p>
+  </footer>
+</body>
+</html>

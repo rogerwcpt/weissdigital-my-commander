@@ -24,7 +24,7 @@ public static class CommandCatalog
         new(MycCommand.Move, "Move", "Move the selection to the other panel", true, KeyToken.F6),
         new(MycCommand.MakeDirectory, "MkDir", "Create a directory", true, KeyToken.F7),
         new(MycCommand.Delete, "Delete", "Move the selection to Trash", true, KeyToken.F8),
-        new(MycCommand.Menu, "Menu", "Open the menu", false, KeyToken.F9),
+        new(MycCommand.Menu, "Menu", "Open the menu", true, KeyToken.F9),
         new(MycCommand.Quit, "Quit", "Quit", true, KeyToken.F10, KeyToken.CtrlQ),
         new(MycCommand.PermanentDelete, "Delete", "Permanently delete the selection", true, KeyToken.ShiftF8),
         new(MycCommand.Refresh, "Refresh", "Reload this panel", true, KeyToken.CtrlR),
@@ -35,6 +35,19 @@ public static class CommandCatalog
         new(MycCommand.EnterDirectory, "Open", "Enter a directory", true, KeyToken.Right),
         new(MycCommand.ParentDirectory, "Parent", "Go up, with the cursor on the folder you left", true, KeyToken.Left),
         new(MycCommand.Activate, "Open", "Enter a directory, or open a file", true, KeyToken.Enter),
+        new(MycCommand.SortName, "Name", "Sort by name. Again reverses", true, KeyToken.CtrlF3),
+        new(MycCommand.SortExtension, "Ext", "Sort by extension. Again reverses", true, KeyToken.CtrlF4),
+        new(MycCommand.SortSize, "Size", "Sort by size. Again reverses", true, KeyToken.CtrlF5),
+        new(MycCommand.SortModified, "Modified", "Sort by modified time. Again reverses", true, KeyToken.CtrlF6),
+        new(MycCommand.ToggleHidden, "Hidden", "Show or hide hidden files", true, KeyToken.AltPeriod),
+        new(MycCommand.SelectPattern, "Select", "Mark names matching a pattern", true, KeyToken.Plus),
+        new(MycCommand.DeselectPattern, "Deselect", "Unmark names matching a pattern", true, KeyToken.Minus),
+        new(MycCommand.InvertSelection, "Invert", "Swap which items are marked", true, KeyToken.Star),
+        new(MycCommand.SelectAll, "All", "Mark everything in this panel", true, KeyToken.CtrlA),
+        new(MycCommand.GoToPath, "Go", "Open a path in this panel", true, KeyToken.CtrlG),
+        new(MycCommand.SameDirectory, "Same", "Show this folder in the other panel", true, KeyToken.AltEquals),
+        new(MycCommand.SwapPanels, "Swap", "Swap the two panels", true, KeyToken.CtrlU),
+        new(MycCommand.Reveal, "Reveal", "Show this item in Finder", true, KeyToken.CtrlO),
     ];
 
     public static IReadOnlyList<CommandSpec> Bar { get; } =
@@ -72,6 +85,7 @@ public static class CommandCatalog
 
         lines.Add($"{Display(KeyToken.ShiftF8),-10} {Find(KeyToken.ShiftF8)!.Summary}");
         lines.Add("Esc, then 1-9 or 0, does the same as F1-F10. Option+digit does the same.");
+        lines.Add("Esc closes a dialog and does nothing else. Progress: Esc cancels.");
         lines.Add("");
 
         foreach (CommandSpec spec in All)
@@ -106,6 +120,19 @@ public static class CommandCatalog
         KeyToken.Home => "Home",
         KeyToken.End => "End",
         KeyToken.Enter => "Enter",
+        KeyToken.CtrlF3 => "Ctrl+F3",
+        KeyToken.CtrlF4 => "Ctrl+F4",
+        KeyToken.CtrlF5 => "Ctrl+F5",
+        KeyToken.CtrlF6 => "Ctrl+F6",
+        KeyToken.AltPeriod => "Alt+.",
+        KeyToken.Plus => "+",
+        KeyToken.Minus => "-",
+        KeyToken.Star => "*",
+        KeyToken.CtrlA => "Ctrl+A",
+        KeyToken.CtrlG => "Ctrl+G",
+        KeyToken.CtrlU => "Ctrl+U",
+        KeyToken.AltEquals => "Alt+=",
+        KeyToken.CtrlO => "Ctrl+O",
         _ => key.ToString(),
     };
 

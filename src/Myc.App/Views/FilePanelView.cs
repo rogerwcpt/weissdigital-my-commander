@@ -3,6 +3,8 @@ using Myc.App.Theming;
 using Myc.Core.Display;
 using Myc.Core.FileSystem;
 using Myc.Core.Platform;
+using Myc.Core.Selection;
+using Myc.Core.Sorting;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
 using Terminal.Gui.Text;
@@ -21,6 +23,9 @@ public sealed class FilePanelView : View
     private readonly HashSet<string> _marks = new(FileNameComparer.Ordinal);
     private IReadOnlyList<FileEntry> _entries = [];
     private string _directory = "";
+    private bool _showHidden = true;
+    private string _sort = PanelSort.Name;
+    private bool _descending;
     private string? _error;
     private int _cursor;
     private int _scroll;
@@ -34,13 +39,80 @@ public sealed class FilePanelView : View
         SetScheme(Graphite.Inactive);
     }
 
+    /// <summary>Raised when this panel takes the keyboard, so a command can find it after the menu closes.</summary>
+    public event Action<FilePanelView>? BecameFocused;
+
     protected override void OnHasFocusChanged(bool newHasFocus, View? previousFocusedView, View? focusedView)
     {
         SetScheme(newHasFocus ? Graphite.Scheme : Graphite.Inactive);
+        SetNeedsDraw();
+        if (newHasFocus)
+        {
+            BecameFocused?.Invoke(this);
+        }
+
         base.OnHasFocusChanged(newHasFocus, previousFocusedView, focusedView);
     }
 
+    /// <summary>The border scheme follows focus, and a theme change has to say so again.</summary>
+    public void Restyle()
+    {
+        SetScheme(HasFocus ? Graphite.Scheme : Graphite.Inactive);
+        SetNeedsDraw();
+    }
+
+    /// <summary>Raised when the panel is showing a different directory, so a watcher can follow it.</summary>
+    public event Action? DirectoryChanged;
+
     public string Directory => _directory;
+
+    /// <summary>Dotfiles stay in the list until Alt+. or the Panel menu hides them.</summary>
+    public bool ShowHidden
+    {
+        get => _showHidden;
+        set
+        {
+            if (_showHidden == value)
+            {
+                return;
+            }
+
+            _showHidden = value;
+            if (_directory.Length > 0)
+            {
+                Apply(_directory, CursorEntry?.Name, stayOnError: true);
+            }
+        }
+    }
+
+    public string Sort => _sort;
+
+    public bool SortDescending => _descending;
+
+    /// <summary>Same order again reverses it. A different order starts at the top of that column.</summary>
+    public void SortBy(string sort)
+    {
+        string next = PanelSort.Normalize(sort);
+        UseSort(next, _sort == next ? !_descending : false);
+    }
+
+    public void UseSort(string sort, bool descending)
+    {
+        string next = PanelSort.Normalize(sort);
+        if (_sort == next && _descending == descending)
+        {
+            return;
+        }
+
+        _sort = next;
+        _descending = descending;
+        if (_directory.Length > 0)
+        {
+            Apply(_directory, CursorEntry?.Name, stayOnError: true);
+        }
+    }
+
+    public void ToggleHidden() => ShowHidden = !_showHidden;
 
     public IReadOnlyList<FileEntry> Entries => _entries;
 
@@ -50,7 +122,7 @@ public sealed class FilePanelView : View
 
     public FileEntry? CursorEntry => _cursor >= 0 && _cursor < _entries.Count ? _entries[_cursor] : null;
 
-    public void Open(string directory) => Apply(directory, selectName: null, stayOnError: false);
+    public void Open(string directory, string? selectName = null) => Apply(directory, selectName, stayOnError: false);
 
     public void Refresh() => Reload(CursorEntry?.Name);
 
@@ -95,6 +167,88 @@ public sealed class FilePanelView : View
 
         _marks.Clear();
         SetNeedsDraw();
+    }
+
+    /// <summary>Enter on the cursor: open the directory, or the file in the default app.</summary>
+    public void ActivateSelection() => Activate();
+
+    /// <summary>Shows the cursor item in Finder. <c>..</c> reveals the folder this panel is showing.</summary>
+    public void RevealCursor()
+    {
+        if (CursorEntry is not { } entry || _directory.Length == 0)
+        {
+            return;
+        }
+
+        string path = entry.IsParent ? _directory : entry.FullPath;
+        _error = _opener.Reveal(path);
+        SetNeedsDraw();
+    }
+
+    /// <summary>Space: toggle the mark on the cursor and move down.</summary>
+    public void ToggleMark() => ToggleMarkAndAdvance();
+
+    /// <summary>Adds every visible name the pattern matches. Existing marks stay. <c>..</c> is never marked.</summary>
+    public void SelectMatching(string pattern) => ChangeMarks(pattern, add: true);
+
+    /// <summary>Removes marks whose names match the pattern. Other marks stay.</summary>
+    public void DeselectMatching(string pattern) => ChangeMarks(pattern, add: false);
+
+    /// <summary>Marks every visible row except <c>..</c>.</summary>
+    public void SelectAll()
+    {
+        bool changed = false;
+        foreach (FileEntry entry in _entries)
+        {
+            if (!entry.IsParent && _marks.Add(entry.Name))
+            {
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            SetNeedsDraw();
+        }
+    }
+
+    /// <summary>Marked names become unmarked, and the other way around. <c>..</c> stays unmarked.</summary>
+    public void InvertMarks()
+    {
+        foreach (FileEntry entry in _entries)
+        {
+            if (entry.IsParent)
+            {
+                continue;
+            }
+
+            if (!_marks.Remove(entry.Name))
+            {
+                _marks.Add(entry.Name);
+            }
+        }
+
+        SetNeedsDraw();
+    }
+
+    private void ChangeMarks(string pattern, bool add)
+    {
+        bool changed = false;
+        foreach (FileEntry entry in _entries)
+        {
+            if (entry.IsParent || !NamePattern.Matches(pattern, entry.Name))
+            {
+                continue;
+            }
+
+            bool updated = add ? _marks.Add(entry.Name) : _marks.Remove(entry.Name);
+            changed |= updated;
+        }
+
+        if (changed)
+        {
+            SetNeedsDraw();
+        }
     }
 
     protected override bool OnKeyDown(Key key)
@@ -187,7 +341,7 @@ public sealed class FilePanelView : View
 
     private void Apply(string directory, string? selectName, bool stayOnError)
     {
-        DirectoryListing listing = _files.List(directory, showHidden: true);
+        DirectoryListing listing = _files.List(directory, _showHidden);
         if (listing.Error is not null && stayOnError)
         {
             _error = listing.Error;
@@ -197,7 +351,7 @@ public sealed class FilePanelView : View
 
         bool sameDirectory = string.Equals(_directory, listing.Directory, StringComparison.Ordinal);
         _directory = listing.Directory;
-        _entries = listing.Entries;
+        _entries = EntrySorter.Sort(listing.Entries, _sort, _descending);
         _error = listing.Error;
         if (!sameDirectory)
         {
@@ -212,6 +366,10 @@ public sealed class FilePanelView : View
         KeepCursorVisible(EntryHeight());
         Title = DisplayPath(_directory);
         SetNeedsDraw();
+        if (!sameDirectory)
+        {
+            DirectoryChanged?.Invoke();
+        }
     }
 
     protected override bool OnDrawingContent(DrawContext? context)
@@ -403,20 +561,21 @@ public sealed class FilePanelView : View
         return detail;
     }
 
-    private static string FormatHeader(PanelColumns columns)
+    private string FormatHeader(PanelColumns columns)
     {
+        ColumnHeaders headers = PanelSort.Headers(_sort, _descending, columns.ShowSize, columns.ShowModified);
         var line = new StringBuilder();
-        line.Append(Pad("Name", columns.Name, right: false));
+        line.Append(Pad(headers.Name, columns.Name, right: false));
         if (columns.ShowSize)
         {
             line.Append(' ');
-            line.Append(Pad("Size", PanelColumns.SizeWidth, right: true));
+            line.Append(Pad(headers.Size, PanelColumns.SizeWidth, right: true));
         }
 
         if (columns.ShowModified)
         {
             line.Append(' ');
-            line.Append(Pad("Modified", PanelColumns.DateWidth, right: true));
+            line.Append(Pad(headers.Modified, PanelColumns.DateWidth, right: true));
         }
 
         return line.ToString();
