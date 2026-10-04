@@ -28,10 +28,10 @@ public static class EntryText
     }
 
     public static string FormatListDate(DateTimeOffset modified) =>
-        modified.ToString("dd MMM", CultureInfo.InvariantCulture);
+        modified.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
 
     public static string FormatDetailDate(DateTimeOffset modified) =>
-        modified.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+        modified.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Keeps the start of the name and the extension, with an ellipsis in between,
@@ -96,34 +96,46 @@ public static class EntryText
             return "";
         }
 
-        var runes = text.EnumerateRunes().ToArray();
+        string[] graphemes = Graphemes(text);
         var builder = new StringBuilder();
         if (!fromEnd)
         {
-            foreach (Rune rune in runes)
+            foreach (string grapheme in graphemes)
             {
-                if (columns(builder.ToString() + rune) > maxColumns)
+                if (columns(builder.ToString() + grapheme) > maxColumns)
                 {
                     break;
                 }
 
-                builder.Append(rune);
+                builder.Append(grapheme);
             }
 
             return builder.ToString();
         }
 
-        for (int index = runes.Length - 1; index >= 0; index--)
+        for (int index = graphemes.Length - 1; index >= 0; index--)
         {
-            string next = runes[index].ToString() + builder;
+            string next = graphemes[index] + builder;
             if (columns(next) > maxColumns)
             {
                 break;
             }
 
-            builder.Insert(0, runes[index].ToString());
+            builder.Insert(0, graphemes[index]);
         }
 
         return builder.ToString();
+    }
+
+    private static string[] Graphemes(string text)
+    {
+        var graphemes = new List<string>();
+        TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(text);
+        while (enumerator.MoveNext())
+        {
+            graphemes.Add(enumerator.GetTextElement());
+        }
+
+        return graphemes.ToArray();
     }
 }

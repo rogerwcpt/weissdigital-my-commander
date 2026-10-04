@@ -16,12 +16,9 @@ namespace Myc.App.Views;
 /// </summary>
 public sealed class FilePanelView : View
 {
-    private const int SizeColumn = 7;
-    private const int DateColumn = 8;
-
     private readonly IFileSystem _files;
     private readonly IFileOpener _opener;
-    private readonly HashSet<string> _marks = [];
+    private readonly HashSet<string> _marks = new(FileNameComparer.Ordinal);
     private IReadOnlyList<FileEntry> _entries = [];
     private string _directory = "";
     private string? _error;
@@ -55,7 +52,39 @@ public sealed class FilePanelView : View
 
     public void Open(string directory) => Apply(directory, selectName: null, stayOnError: false);
 
-    public void Refresh() => Apply(_directory, CursorEntry?.Name, stayOnError: true);
+    public void Refresh() => Reload(CursorEntry?.Name);
+
+    public void Reload(string? selectName) => Apply(_directory, selectName, stayOnError: true);
+
+    /// <summary>Reloads this folder. If the cursor's name is gone, the same row stays selected.</summary>
+    public void ReloadKeepingCursor()
+    {
+        string? name = CursorEntry?.Name;
+        int index = _cursor;
+        Apply(_directory, name, stayOnError: true);
+        if (name is not null && IndexOf(name) < 0 && _entries.Count > 0)
+        {
+            _cursor = Math.Clamp(index, 0, _entries.Count - 1);
+            KeepCursorVisible(EntryHeight());
+            SetNeedsDraw();
+        }
+    }
+
+    public void ShowError(string message)
+    {
+        _error = message;
+        SetNeedsDraw();
+    }
+
+    public void ReplaceMark(string oldName, string newName)
+    {
+        if (!_marks.Remove(oldName))
+        {
+            return;
+        }
+
+        _marks.Add(newName);
+    }
 
     public void ClearMarks()
     {
@@ -158,7 +187,7 @@ public sealed class FilePanelView : View
 
     private void Apply(string directory, string? selectName, bool stayOnError)
     {
-        DirectoryListing listing = _files.List(directory, showHidden: false);
+        DirectoryListing listing = _files.List(directory, showHidden: true);
         if (listing.Error is not null && stayOnError)
         {
             _error = listing.Error;
@@ -176,7 +205,7 @@ public sealed class FilePanelView : View
             _scroll = 0;
         }
 
-        _marks.RemoveWhere(name => _entries.All(entry => entry.Name != name));
+        _marks.RemoveWhere(name => _entries.All(entry => !EntryNames.Same(entry.Name, name)));
 
         int selected = selectName is null ? -1 : IndexOf(selectName);
         _cursor = selected >= 0 ? selected : 0;
@@ -201,7 +230,7 @@ public sealed class FilePanelView : View
             return true;
         }
 
-        ColumnPlan columns = ColumnPlan.For(width);
+        PanelColumns columns = PanelColumns.For(width);
         int entryRows = EntryHeight(height);
         KeepCursorVisible(entryRows);
 
@@ -302,10 +331,15 @@ public sealed class FilePanelView : View
             return Graphite.Marked;
         }
 
+        if (entry.IsHidden)
+        {
+            return entry.IsContainer ? Graphite.HiddenDirectory : Graphite.Hidden;
+        }
+
         return entry.IsContainer ? Graphite.Directory : Graphite.Text;
     }
 
-    private void DrawHeader(ColumnPlan columns, int width)
+    private void DrawHeader(PanelColumns columns, int width)
     {
         SetAttribute(Graphite.Header);
         AddStr(0, 0, Fit(FormatHeader(columns), width));
@@ -369,30 +403,30 @@ public sealed class FilePanelView : View
         return detail;
     }
 
-    private static string FormatHeader(ColumnPlan columns)
+    private static string FormatHeader(PanelColumns columns)
     {
         var line = new StringBuilder();
         line.Append(Pad("Name", columns.Name, right: false));
         if (columns.ShowSize)
         {
             line.Append(' ');
-            line.Append(Pad("Size", SizeColumn, right: true));
+            line.Append(Pad("Size", PanelColumns.SizeWidth, right: true));
         }
 
         if (columns.ShowModified)
         {
             line.Append(' ');
-            line.Append(Pad("Modified", DateColumn, right: true));
+            line.Append(Pad("Modified", PanelColumns.DateWidth, right: true));
         }
 
         return line.ToString();
     }
 
-    private static string FormatRow(FileEntry entry, bool marked, ColumnPlan columns)
+    private static string FormatRow(FileEntry entry, bool marked, PanelColumns columns)
     {
         string prefix = marked
-            ? entry.IsContainer && !entry.IsParent ? "•▸" : "• "
-            : entry.IsContainer && !entry.IsParent ? " ▸" : "  ";
+            ? entry.IsContainer && !entry.IsParent ? "• ▸ " : "•   "
+            : entry.IsContainer && !entry.IsParent ? "  ▸ " : "    ";
         string name = entry.IsParent ? ".." : entry.IsContainer ? entry.Name + "/" : entry.Name;
         int prefixColumns = prefix.GetColumns();
         int nameBudget = Math.Max(0, columns.Name - prefixColumns);
@@ -404,14 +438,14 @@ public sealed class FilePanelView : View
         {
             string size = entry.IsParent ? "" : entry.IsContainer ? "<DIR>" : entry.Size is long bytes ? EntryText.FormatSize(bytes) : "";
             line.Append(' ');
-            line.Append(Pad(size, SizeColumn, right: true));
+            line.Append(Pad(size, PanelColumns.SizeWidth, right: true));
         }
 
         if (columns.ShowModified)
         {
             string date = entry.Modified is DateTimeOffset modified ? EntryText.FormatListDate(modified.ToLocalTime()) : "";
             line.Append(' ');
-            line.Append(Pad(date, DateColumn, right: true));
+            line.Append(Pad(date, PanelColumns.DateWidth, right: true));
         }
 
         return line.ToString();
@@ -441,7 +475,7 @@ public sealed class FilePanelView : View
     {
         for (int index = 0; index < _entries.Count; index++)
         {
-            if (_entries[index].Name == name)
+            if (EntryNames.Same(_entries[index].Name, name))
             {
                 return index;
             }
@@ -462,24 +496,4 @@ public sealed class FilePanelView : View
         return path.StartsWith(prefix, StringComparison.Ordinal) ? "~" + path[home.Length..] : path;
     }
 
-    private readonly record struct ColumnPlan(int Name, bool ShowSize, bool ShowModified)
-    {
-        public static ColumnPlan For(int width)
-        {
-            int remaining = width;
-            bool showModified = remaining >= 20 + DateColumn;
-            if (showModified)
-            {
-                remaining -= DateColumn + 1;
-            }
-
-            bool showSize = remaining >= 16 + SizeColumn;
-            if (showSize)
-            {
-                remaining -= SizeColumn + 1;
-            }
-
-            return new ColumnPlan(Math.Max(0, remaining), showSize, showModified);
-        }
-    }
 }

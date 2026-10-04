@@ -26,6 +26,9 @@ public sealed class NaturalNameComparer : IComparer<string>
             return 1;
         }
 
+        x = x.Normalize(System.Text.NormalizationForm.FormC);
+        y = y.Normalize(System.Text.NormalizationForm.FormC);
+
         int ix = 0;
         int iy = 0;
         while (ix < x.Length && iy < y.Length)

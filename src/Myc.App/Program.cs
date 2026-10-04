@@ -31,9 +31,9 @@ var right = new FilePanelView(files, opener)
 };
 
 var window = new Window { Title = "myc" };
-var router = new CommandRouter(app, window);
+var router = new CommandRouter(app, window, files, left, right);
 window.SetScheme(Graphite.Scheme);
-window.Add(left, right, FunctionKeyBar.Create(app, router.ShowHelp));
+window.Add(left, right, FunctionKeyBar.Create(router.Invoke));
 router.Attach();
 
 left.Open(Directory.GetCurrentDirectory());

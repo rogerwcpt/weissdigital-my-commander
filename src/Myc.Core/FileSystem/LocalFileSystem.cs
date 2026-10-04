@@ -42,6 +42,104 @@ public sealed class LocalFileSystem : IFileSystem
         }
     }
 
+    public FileChange Rename(string directory, string name, string newName)
+    {
+        if (name is "." or "..")
+        {
+            return Fail("Can't rename that.");
+        }
+
+        if (EntryNames.ComponentRejection(newName) is { } rejection)
+        {
+            return Fail(rejection);
+        }
+
+        if (EntryNames.Same(name, newName))
+        {
+            return new FileChange(name, null);
+        }
+
+        string full = Path.GetFullPath(directory);
+        try
+        {
+            if (!Occupies(full, name))
+            {
+                return Fail("That item is no longer there.");
+            }
+
+            if (Occupies(full, newName) || (CollidesIgnoringCase(full, name, newName) && !IsCaseSensitive(full)))
+            {
+                return Fail("That name is already used.");
+            }
+
+            string source = Path.Combine(full, name);
+            string destination = Path.Combine(full, newName);
+            if (EntryNames.EqualIgnoringCase(name, newName))
+            {
+                MoveCaseOnly(source, destination, full);
+            }
+            else
+            {
+                MoveEntry(source, destination);
+            }
+
+            return new FileChange(newName, null);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Fail(exception.Message);
+        }
+    }
+
+    public FileChange CreateDirectory(string directory, string relativeName)
+    {
+        if (EntryNames.RelativeDirectoryRejection(relativeName) is { } rejection)
+        {
+            return Fail(rejection);
+        }
+
+        string trimmed = relativeName.Trim().TrimEnd('/');
+        string[] parts = trimmed.Split('/');
+        string full = Path.GetFullPath(directory);
+        string target = Path.GetFullPath(Path.Combine(full, trimmed));
+        string prefix = full.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!target.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return Fail("Use a name inside this folder.");
+        }
+
+        try
+        {
+            string cursor = full;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string next = Path.Combine(cursor, parts[i]);
+                bool last = i == parts.Length - 1;
+                if (last && Directory.Exists(cursor) &&
+                    (Occupies(cursor, parts[i]) || (CollidesIgnoringCase(cursor, null, parts[i]) && !IsCaseSensitive(cursor))))
+                {
+                    return Fail("That name is already used.");
+                }
+
+                if (!last && BlocksDirectory(next))
+                {
+                    return Fail("A file is in the way.");
+                }
+
+                cursor = next;
+            }
+
+            Directory.CreateDirectory(target);
+            return new FileChange(parts[0], null);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Fail(exception.Message);
+        }
+    }
+
+    private static FileChange Fail(string error) => new(null, error);
+
     private static FileEntry? ParentOf(string directory)
     {
         string? parent = Path.GetDirectoryName(directory);
@@ -175,6 +273,117 @@ public sealed class LocalFileSystem : IFileSystem
         catch (UnauthorizedAccessException)
         {
             return null;
+        }
+    }
+
+    private static void MoveCaseOnly(string source, string destination, string directory)
+    {
+        string temp = Path.Combine(directory, ".myc-rename-" + Guid.NewGuid().ToString("N"));
+        MoveEntry(source, temp);
+        try
+        {
+            MoveEntry(temp, destination);
+        }
+        catch
+        {
+            MoveEntry(temp, source);
+            throw;
+        }
+    }
+
+    private static void MoveEntry(string source, string destination)
+    {
+        if (HasReparsePoint(source) || !Directory.Exists(source))
+        {
+            File.Move(source, destination);
+            return;
+        }
+
+        Directory.Move(source, destination);
+    }
+
+    private static bool HasReparsePoint(string path) =>
+        File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint);
+
+    private static bool BlocksDirectory(string path)
+    {
+        if (!ExistsEntry(path))
+        {
+            return false;
+        }
+
+        if (HasReparsePoint(path))
+        {
+            return !Directory.Exists(path);
+        }
+
+        return File.Exists(path);
+    }
+
+    private static bool ExistsEntry(string path)
+    {
+        string? parent = Path.GetDirectoryName(path);
+        return parent is not null && Occupies(parent, Path.GetFileName(path));
+    }
+
+    private static bool Occupies(string directory, string name)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        foreach (string path in Directory.EnumerateFileSystemEntries(directory))
+        {
+            if (EntryNames.Same(Path.GetFileName(path), name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool CollidesIgnoringCase(string directory, string? except, string name)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return false;
+        }
+
+        foreach (string path in Directory.EnumerateFileSystemEntries(directory))
+        {
+            string existing = Path.GetFileName(path);
+            if (except is not null && EntryNames.Same(existing, except))
+            {
+                continue;
+            }
+
+            if (EntryNames.EqualIgnoringCase(existing, name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsCaseSensitive(string directory)
+    {
+        string token = Guid.NewGuid().ToString("N");
+        string lower = Path.Combine(directory, ".myc-case-" + token);
+        string upper = Path.Combine(directory, ".MYC-CASE-" + token.ToUpperInvariant());
+        using (File.Create(lower))
+        {
+        }
+
+        try
+        {
+            return !File.Exists(upper);
+        }
+        finally
+        {
+            File.Delete(lower);
         }
     }
 

@@ -20,6 +20,12 @@ public class NaturalSortTests
     }
 
     [Fact]
+    public void Composed_and_decomposed_accents_sort_as_the_same_name()
+    {
+        Assert.Equal(0, NaturalNameComparer.Instance.Compare("caf\u00e9", "cafe\u0301"));
+    }
+
+    [Fact]
     public void Entries_put_parent_then_directories_then_files()
     {
         FileEntry[] entries =
