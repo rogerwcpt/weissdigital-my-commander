@@ -1,6 +1,8 @@
+using Myc.App.Input;
 using Myc.App.Theming;
 using Myc.App.Views;
 using Myc.Core.FileSystem;
+using Myc.Core.Platform;
 using Terminal.Gui.App;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
@@ -12,14 +14,15 @@ using IApplication app = Application.Create();
 app.Init();
 
 var files = new LocalFileSystem();
-var left = new FilePanelView(files)
+var opener = new MacFileOpener();
+var left = new FilePanelView(files, opener)
 {
     X = 0,
     Y = 0,
     Width = Dim.Percent(50),
     Height = Dim.Fill(1),
 };
-var right = new FilePanelView(files)
+var right = new FilePanelView(files, opener)
 {
     X = Pos.Right(left),
     Y = 0,
@@ -28,8 +31,10 @@ var right = new FilePanelView(files)
 };
 
 var window = new Window { Title = "myc" };
+var router = new CommandRouter(app, window);
 window.SetScheme(Graphite.Scheme);
-window.Add(left, right, FunctionKeyBar.Create(app));
+window.Add(left, right, FunctionKeyBar.Create(app, router.ShowHelp));
+router.Attach();
 
 left.Open(Directory.GetCurrentDirectory());
 right.Open(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));

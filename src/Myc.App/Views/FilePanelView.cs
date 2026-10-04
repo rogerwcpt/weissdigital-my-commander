@@ -2,6 +2,7 @@ using System.Text;
 using Myc.App.Theming;
 using Myc.Core.Display;
 using Myc.Core.FileSystem;
+using Myc.Core.Platform;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.Input;
 using Terminal.Gui.Text;
@@ -19,6 +20,7 @@ public sealed class FilePanelView : View
     private const int DateColumn = 8;
 
     private readonly IFileSystem _files;
+    private readonly IFileOpener _opener;
     private readonly HashSet<string> _marks = [];
     private IReadOnlyList<FileEntry> _entries = [];
     private string _directory = "";
@@ -26,9 +28,10 @@ public sealed class FilePanelView : View
     private int _cursor;
     private int _scroll;
 
-    public FilePanelView(IFileSystem files)
+    public FilePanelView(IFileSystem files, IFileOpener opener)
     {
         _files = files;
+        _opener = opener;
         CanFocus = true;
         BorderStyle = LineStyle.Rounded;
         SetScheme(Graphite.Inactive);
@@ -50,24 +53,18 @@ public sealed class FilePanelView : View
 
     public FileEntry? CursorEntry => _cursor >= 0 && _cursor < _entries.Count ? _entries[_cursor] : null;
 
-    public void Open(string directory)
-    {
-        string? keep = CursorEntry?.Name;
-        bool sameDirectory = string.Equals(_directory, Path.GetFullPath(directory), StringComparison.Ordinal);
-        DirectoryListing listing = _files.List(directory, showHidden: false);
-        _directory = listing.Directory;
-        _entries = listing.Entries;
-        _error = listing.Error;
-        _marks.RemoveWhere(name => _entries.All(entry => entry.Name != name));
+    public void Open(string directory) => Apply(directory, selectName: null, stayOnError: false);
 
-        int kept = keep is null ? -1 : IndexOf(keep);
-        _cursor = kept >= 0 ? kept : 0;
-        if (!sameDirectory)
+    public void Refresh() => Apply(_directory, CursorEntry?.Name, stayOnError: true);
+
+    public void ClearMarks()
+    {
+        if (_marks.Count == 0)
         {
-            _scroll = 0;
+            return;
         }
 
-        Title = DisplayPath(_directory);
+        _marks.Clear();
         SetNeedsDraw();
     }
 
@@ -83,6 +80,9 @@ public sealed class FilePanelView : View
             var plain when plain == Key.Home => MoveTo(0),
             var plain when plain == Key.End => MoveTo(_entries.Count - 1),
             var plain when plain == Key.Space || plain == Key.InsertChar => ToggleMarkAndAdvance(),
+            var plain when plain == Key.CursorRight => EnterCursor(),
+            var plain when plain == Key.CursorLeft => GoUp(),
+            var plain when plain == Key.Enter => Activate(),
             _ => false,
         };
 
@@ -91,7 +91,8 @@ public sealed class FilePanelView : View
 
     protected override bool OnMouseEvent(Mouse mouse)
     {
-        if (!mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked) || mouse.Position is not { } position)
+        bool doubleClick = mouse.Flags.HasFlag(MouseFlags.LeftButtonDoubleClicked);
+        if ((!mouse.Flags.HasFlag(MouseFlags.LeftButtonClicked) && !doubleClick) || mouse.Position is not { } position)
         {
             return base.OnMouseEvent(mouse);
         }
@@ -104,7 +105,84 @@ public sealed class FilePanelView : View
 
         MoveTo(_scroll + row - 1);
         SetFocus();
+        if (doubleClick)
+        {
+            Activate();
+        }
+
         return true;
+    }
+
+    private bool EnterCursor()
+    {
+        if (CursorEntry is not { } entry)
+        {
+            return true;
+        }
+
+        if (DirectoryNavigation.Enter(entry, _directory) is { } move)
+        {
+            Apply(move.Directory, move.SelectName, stayOnError: true);
+        }
+
+        return true;
+    }
+
+    private bool GoUp()
+    {
+        if (DirectoryNavigation.Up(_directory) is { } move)
+        {
+            Apply(move.Directory, move.SelectName, stayOnError: true);
+        }
+
+        return true;
+    }
+
+    private bool Activate()
+    {
+        if (CursorEntry is not { } entry)
+        {
+            return true;
+        }
+
+        if (DirectoryNavigation.Enter(entry, _directory) is { } move)
+        {
+            Apply(move.Directory, move.SelectName, stayOnError: true);
+            return true;
+        }
+
+        _error = _opener.Open(entry.FullPath);
+        SetNeedsDraw();
+        return true;
+    }
+
+    private void Apply(string directory, string? selectName, bool stayOnError)
+    {
+        DirectoryListing listing = _files.List(directory, showHidden: false);
+        if (listing.Error is not null && stayOnError)
+        {
+            _error = listing.Error;
+            SetNeedsDraw();
+            return;
+        }
+
+        bool sameDirectory = string.Equals(_directory, listing.Directory, StringComparison.Ordinal);
+        _directory = listing.Directory;
+        _entries = listing.Entries;
+        _error = listing.Error;
+        if (!sameDirectory)
+        {
+            _marks.Clear();
+            _scroll = 0;
+        }
+
+        _marks.RemoveWhere(name => _entries.All(entry => entry.Name != name));
+
+        int selected = selectName is null ? -1 : IndexOf(selectName);
+        _cursor = selected >= 0 ? selected : 0;
+        KeepCursorVisible(EntryHeight());
+        Title = DisplayPath(_directory);
+        SetNeedsDraw();
     }
 
     protected override bool OnDrawingContent(DrawContext? context)

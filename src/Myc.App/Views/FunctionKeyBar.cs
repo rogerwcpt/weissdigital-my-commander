@@ -1,4 +1,6 @@
+using Myc.App.Input;
 using Myc.App.Theming;
+using Myc.Core.Commands;
 using Terminal.Gui.App;
 using Terminal.Gui.Input;
 using Terminal.Gui.ViewBase;
@@ -12,21 +14,18 @@ namespace Myc.App.Views;
 /// </summary>
 internal static class FunctionKeyBar
 {
-    public static StatusBar Create(IApplication app)
+    public static StatusBar Create(IApplication app, Action showHelp)
     {
-        Shortcut[] keys =
-        [
-            Item(Key.F1, "Help"),
-            Item(Key.F2, "Rename"),
-            Item(Key.F3, "—"),
-            Item(Key.F4, "—"),
-            Item(Key.F5, "Copy"),
-            Item(Key.F6, "Move"),
-            Item(Key.F7, "MkDir"),
-            Item(Key.F8, "Delete"),
-            Item(Key.F9, "Menu"),
-            Item(Key.F10, "Quit", () => app.RequestStop()),
-        ];
+        Shortcut[] keys = CommandCatalog.Bar.Select(spec =>
+        {
+            Action? action = spec.Command switch
+            {
+                MycCommand.Help => showHelp,
+                MycCommand.Quit => () => app.RequestStop(),
+                _ => null,
+            };
+            return Item(KeyMap.ToGui(spec.Keys[0]), spec.Label, spec.Summary, action);
+        }).ToArray();
 
         var bar = new StatusBar(keys)
         {
@@ -40,9 +39,9 @@ internal static class FunctionKeyBar
         return bar;
     }
 
-    private static Shortcut Item(Key key, string title, Action? action = null)
+    private static Shortcut Item(Key key, string title, string help, Action? action)
     {
-        return new Shortcut(key, title, action ?? (() => { }), title)
+        return new Shortcut(key, title, action ?? (() => { }), help)
         {
             Enabled = action is not null,
             TabStop = TabBehavior.NoStop,
