@@ -1,0 +1,44 @@
+name: release
+
+# Every push to main, including a merge, publishes the next patch release.
+# There is no concurrency group: GitHub keeps a single pending run in a group
+# and cancels the others, which would drop a merge. Overlapping runs retry
+# and take the next patch number instead.
+on:
+  push:
+    branches:
+      - main
+
+# contents: write lets this job create the release and its tag.
+# GitHub supplies GITHUB_TOKEN for the job. A personal access token is not used.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # macOS, so the Apple silicon and Intel binaries are ad-hoc signed during
+    # publish. A single-file macOS build produced on Linux is unsigned, and
+    # macOS kills it on launch. This same job cross-compiles Linux and Windows.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Test
+        run: dotnet test src/Myc.sln --configuration Release
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/release.sh
