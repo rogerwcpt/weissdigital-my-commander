@@ -54,9 +54,27 @@ F9 opens the menu, and every item shows its shortcut, so the menu is also the ch
 
 F3 and F4 stay on the bar, dimmed, until a viewer and an editor exist. The row does not grow a hole in the meantime. On a Mac, Esc then a digit does the same as the function key.
 
+## Install
+
+A merge to `main` publishes the next release. The version is the next patch on the highest `vX.Y.Z` tag. The first release is `v0.1.0`, and each one stays in the list. The archives are on the [Releases](https://github.com/rogerwcpt/weissdigital-my-commander/releases) page.
+
+The archive includes the runtime. Unpack it and put `myc` on your `PATH`. On Windows the program is `myc.exe`.
+
+| Archive | Machine |
+| --- | --- |
+| `myc-<version>-osx-arm64.tar.gz` | Apple silicon |
+| `myc-<version>-osx-x64.tar.gz` | Intel Mac |
+| `myc-<version>-linux-x64.tar.gz` | Linux, 64-bit |
+| `myc-<version>-linux-arm64.tar.gz` | Linux, ARM |
+| `myc-<version>-win-x64.zip` | Windows, 64-bit |
+
+`SHA256SUMS` sits beside the archives. A browser download on macOS is quarantined by Gatekeeper. The binary is ad-hoc signed, and clearing the quarantine lets it run: `xattr -d com.apple.quarantine myc`
+
 ## Run
 
 The command is `myc`. The first launch opens the current directory on the left and your home folder on the right. Later launches reopen the folders you left, unless `~/.config/myc/settings.json` says `"startup": "default"`. Config lives in `~/.config/myc/`. The plan is in [plan/](plan/README.md).
+
+From a checkout, with the .NET 10 SDK:
 
 ```bash
 dotnet test src/Myc.sln
