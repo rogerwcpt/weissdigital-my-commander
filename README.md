@@ -68,7 +68,32 @@ The archive includes the runtime. Unpack it and put `myc` on your `PATH`. On Win
 | `myc-<version>-linux-arm64.tar.gz` | Linux, ARM |
 | `myc-<version>-win-x64.zip` | Windows, 64-bit |
 
-`SHA256SUMS` sits beside the archives. A browser download on macOS is quarantined by Gatekeeper. The binary is ad-hoc signed, and clearing the quarantine lets it run: `xattr -d com.apple.quarantine myc`
+`SHA256SUMS` sits beside the archives.
+
+### macOS
+
+`myc` runs in a terminal. A browser download is quarantined by Gatekeeper. Opening the file from Finder shows “Apple could not verify myc is free of malware.” Click Done on that dialog. Move to Bin throws the download away.
+
+In the folder that contains `myc`:
+
+```bash
+xattr -d com.apple.quarantine myc
+chmod +x myc
+./myc
+```
+
+`xattr -l myc` lists the file's attributes. `com.apple.quarantine` means Gatekeeper is still holding it. Apple silicon uses `myc-<version>-osx-arm64.tar.gz`. An Intel Mac uses `myc-<version>-osx-x64.tar.gz`.
+
+A download with `curl` never receives the quarantine flag. For the v0.1.0 Apple silicon archive:
+
+```bash
+curl -L -o myc.tar.gz https://github.com/rogerwcpt/weissdigital-my-commander/releases/download/v0.1.0/myc-0.1.0-osx-arm64.tar.gz
+tar -xzf myc.tar.gz
+chmod +x myc
+./myc
+```
+
+A later release uses the same commands with its own version in the file name. The build is ad-hoc signed. A browser download keeps showing the dialog until the release is notarized with an Apple Developer ID.
 
 ## Run
 
