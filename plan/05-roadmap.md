@@ -2,6 +2,15 @@
 
 Ordered by value; each milestone is meant to be shippable on its own.
 
+## Viewer — full-screen F3
+
+F3 opens the file under the cursor over both panels and returns to the same place. Plain text
+is the base. `.md`, `.markdown`, and `.mdown` start rendered, and `M` switches between
+rendered and source. The design and the Markdown limits are in [07-viewer.md](07-viewer.md).
+
+This does not depend on the milestones below. It can be built as soon as it is asked for.
+Hex view and F4 editing stay in the later list.
+
 ## MVP2 — User themes
 
 MVP1 already ships Options → Theme… for Graphite, Paper, and Terminal.Gui's built-in themes.
@@ -30,7 +39,8 @@ A common pattern: list on the left, preview on the right, following the left pan
    - Text and code: first N KB, with optional lightweight syntax highlighting.
    - Images: inline rendering through the Kitty / iTerm2 graphics protocols or Sixel where the
      terminal supports it, falling back to block characters. Shares ideas with Viewism.
-   - Markdown: rendered with Terminal.Gui's Markdown view.
+   - Markdown: the same Terminal.Gui `Markdown` view as the F3 viewer
+     ([07-viewer.md](07-viewer.md)). Preview and F3 do not grow two renderers.
    - Directories: a summary of their contents.
    - Binary: hex dump of the header and the detected file type.
 3. **File / directory info**
@@ -51,7 +61,7 @@ not approved yet and is gated by a spike.
 
 | Area | Ideas |
 | --- | --- |
-| View / edit | F3 built-in viewer (text, hex), F4 opens `$EDITOR` and returns cleanly |
+| View / edit | Hex view of a file. F4 opens `$EDITOR` and returns cleanly. The F3 text and Markdown viewer is its own milestone above. |
 | Navigation | Type-to-jump / quick filter, bookmarks / hotlist (`Ctrl+B`), directory history (`Alt+←/→`), tabs per panel |
 | Search | Find files by name or content (`Alt+F7`), results as a virtual panel |
 | Bulk ops | Multi-rename with pattern and preview, compare / sync directories |

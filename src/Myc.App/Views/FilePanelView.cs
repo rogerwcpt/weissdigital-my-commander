@@ -148,6 +148,17 @@ public sealed class FilePanelView : View
         SetNeedsDraw();
     }
 
+    public void ClearError()
+    {
+        if (_error is null)
+        {
+            return;
+        }
+
+        _error = null;
+        SetNeedsDraw();
+    }
+
     public void ReplaceMark(string oldName, string newName)
     {
         if (!_marks.Remove(oldName))

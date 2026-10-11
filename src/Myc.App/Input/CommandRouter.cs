@@ -31,6 +31,7 @@ internal sealed class CommandRouter
     private readonly ITrash _trash = new MacTrash();
     private readonly List<string> _gotoHistory = [];
     private Func<ConfirmationSettings> _confirm = () => ConfirmationSettings.Default;
+    private int _viewOpening;
     private FilePanelView _active;
     private AppMenu? _menu;
     private bool _escapePending;
@@ -129,6 +130,9 @@ internal sealed class CommandRouter
             case MycCommand.Reveal:
                 ActivePanel().RevealCursor();
                 break;
+            case MycCommand.View:
+                ViewFile();
+                break;
             case MycCommand.Refresh:
                 ActivePanel().Refresh();
                 break;
@@ -190,6 +194,40 @@ internal sealed class CommandRouter
 
     private void OnKeyDown(object? sender, Key key)
     {
+        if (_app.TopRunnable is FileViewer viewer)
+        {
+            if (key == Key.Esc || key == Key.F3)
+            {
+                key.Handled = true;
+                viewer.RequestStop();
+                return;
+            }
+
+            if (key == Key.F10 || (key == Key.Q.WithCtrl && !key.IsAlt && !key.IsShift))
+            {
+                key.Handled = true;
+                viewer.RequestStop();
+                _app.RequestStop(_window);
+                return;
+            }
+
+            if (IsPlainLetter(key, 'w'))
+            {
+                key.Handled = true;
+                viewer.ToggleWrap();
+                return;
+            }
+
+            if (IsPlainLetter(key, 'm'))
+            {
+                key.Handled = true;
+                viewer.ToggleMarkdown();
+                return;
+            }
+
+            return;
+        }
+
         if (!ReferenceEquals(_app.TopRunnable, _window))
         {
             if (key == Key.Esc)
@@ -290,6 +328,76 @@ internal sealed class CommandRouter
         }
 
         Invoke(spec.Command);
+    }
+
+    private void ViewFile()
+    {
+        if (ActivePanel() is not { } panel)
+        {
+            return;
+        }
+
+        FileEntry? entry = panel.CursorEntry;
+        if (entry is null || entry.IsParent || entry.IsContainer)
+        {
+            panel.ShowError("Not a file.");
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _viewOpening, 1, 0) != 0)
+        {
+            return;
+        }
+
+        string path = entry.FullPath;
+        string name = entry.Name;
+        bool markdown = ViewerText.LooksLikeMarkdown(name);
+        _ = Task.Run(() => ViewerText.Read(path)).ContinueWith(done =>
+        {
+            try
+            {
+                _app.Invoke(() =>
+                {
+                    try
+                    {
+                        if (done.IsFaulted)
+                        {
+                            panel.ShowError(done.Exception?.GetBaseException().Message ?? "Could not read the file.");
+                            return;
+                        }
+
+                        ViewerText.Content content = done.Result;
+                        if (!content.Ok)
+                        {
+                            panel.ShowError(content.Error ?? "Could not read the file.");
+                            return;
+                        }
+
+                        panel.ClearError();
+                        FileViewer.Show(_app, name, content.Text, markdown);
+                    }
+                    finally
+                    {
+                        _viewOpening = 0;
+                    }
+                });
+            }
+            catch (ObjectDisposedException)
+            {
+                _viewOpening = 0;
+            }
+        }, TaskScheduler.Default);
+    }
+
+    private static bool IsPlainLetter(Key key, char lower)
+    {
+        if (key.IsCtrl || key.IsAlt)
+        {
+            return false;
+        }
+
+        int rune = key.AsRune.Value;
+        return rune == lower || rune == char.ToUpperInvariant(lower);
     }
 
     private void GoToPath()

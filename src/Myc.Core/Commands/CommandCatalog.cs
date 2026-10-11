@@ -18,7 +18,7 @@ public static class CommandCatalog
     [
         new(MycCommand.Help, "Help", "Show this key reference", true, KeyToken.F1),
         new(MycCommand.Rename, "Rename", "Rename the item under the cursor", true, KeyToken.F2),
-        new(MycCommand.View, "—", "Reserved", false, KeyToken.F3),
+        new(MycCommand.View, "View", "View this file", true, KeyToken.F3),
         new(MycCommand.Edit, "—", "Reserved", false, KeyToken.F4),
         new(MycCommand.Copy, "Copy", "Copy the selection to the other panel", true, KeyToken.F5),
         new(MycCommand.Move, "Move", "Move the selection to the other panel", true, KeyToken.F6),

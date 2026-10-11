@@ -50,6 +50,7 @@ public class CommandCatalogTests
         string help = CommandCatalog.HelpText();
 
         Assert.Contains("F5   Copy", help);
+        Assert.Contains("F3   View", help);
         Assert.Contains("F9   Menu", help);
         Assert.True(CommandCatalog.Find(KeyToken.F9)!.Available);
         Assert.Contains("F10  Quit", help);
