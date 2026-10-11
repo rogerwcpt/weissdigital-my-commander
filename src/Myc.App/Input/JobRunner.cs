@@ -12,12 +12,14 @@ internal sealed class JobRunner
 {
     private readonly IApplication _app;
     private readonly Func<bool> _confirmOverwrite;
+    private readonly Func<bool> _shellIsActive;
     private int _running;
 
-    public JobRunner(IApplication app, Func<bool> confirmOverwrite)
+    public JobRunner(IApplication app, Func<bool> confirmOverwrite, Func<bool> shellIsActive)
     {
         _app = app;
         _confirmOverwrite = confirmOverwrite;
+        _shellIsActive = shellIsActive;
     }
 
     public bool IsRunning => _running > 0;
@@ -73,6 +75,15 @@ internal sealed class JobRunner
             if (finished || task.IsCompleted)
             {
                 return false;
+            }
+
+            // The overwrite question (or an error) is already modal. Drawing the
+            // progress dialog on top of it buries that question: Esc and Cancel
+            // hit this dialog, the job keeps waiting for the answer, and neither
+            // button can close it.
+            if (!_shellIsActive())
+            {
+                return true;
             }
 
             open = true;

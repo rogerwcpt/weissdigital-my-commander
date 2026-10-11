@@ -109,6 +109,26 @@ public class FileChangeTests : IDisposable
         Assert.Equal("x", File.ReadAllText(Path.Combine(_root, "file")));
     }
 
+    [Fact]
+    public void Create_file_writes_an_empty_file_and_selects_it()
+    {
+        FileChange change = _files.CreateFile(_root, "  notes.txt  ");
+
+        Assert.Null(change.Error);
+        Assert.Equal("notes.txt", change.SelectedName);
+        Assert.Equal("", File.ReadAllText(Path.Combine(_root, "notes.txt")));
+    }
+
+    [Fact]
+    public void Create_file_refuses_a_taken_name_and_a_slash()
+    {
+        File.WriteAllText(Path.Combine(_root, "taken"), "x");
+
+        Assert.Equal("That name is already used.", _files.CreateFile(_root, "taken").Error);
+        Assert.Equal("A name can't contain /.", _files.CreateFile(_root, "a/b").Error);
+        Assert.Equal("x", File.ReadAllText(Path.Combine(_root, "taken")));
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     private string[] Names() =>

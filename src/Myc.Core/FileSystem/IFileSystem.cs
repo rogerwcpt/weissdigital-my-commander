@@ -11,4 +11,7 @@ public interface IFileSystem
     /// create intermediate folders. The selected name is the first segment, the row that appears here.
     /// </summary>
     FileChange CreateDirectory(string directory, string relativeName);
+
+    /// <summary>Creates an empty file inside <paramref name="directory"/>. The selected name is that file.</summary>
+    FileChange CreateFile(string directory, string name);
 }

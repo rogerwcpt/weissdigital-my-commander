@@ -11,6 +11,7 @@ using Terminal.Gui.Views;
 
 Application.SetDefaultKeyBinding(Command.Quit, Bind.All(Key.F10, Key.Q.WithCtrl));
 
+TerminalHandoff.Capture();
 using IApplication app = Application.Create();
 app.Init();
 
@@ -19,7 +20,7 @@ AppSettings settings = store.EnsureSettings();
 Themes.Use(settings.Theme);
 
 var files = new LocalFileSystem();
-var opener = new MacFileOpener();
+var opener = new SystemFileOpener();
 var left = new FilePanelView(files, opener)
 {
     X = 0,
@@ -36,7 +37,7 @@ var right = new FilePanelView(files, opener)
 };
 
 var window = new Window { Title = "myc" };
-var router = new CommandRouter(app, window, files, left, right);
+var router = new CommandRouter(app, window, files, left, right, opener, () => settings.Editor);
 router.UseConfirmations(() => settings.Confirm);
 var menu = new AppMenu(app, router.Invoke, ChooseTheme, OpenSettings, () => AboutPrompt.Show(app), () => settings.Confirm, SaveConfirm);
 var bar = FunctionKeyBar.Create(router.Invoke);

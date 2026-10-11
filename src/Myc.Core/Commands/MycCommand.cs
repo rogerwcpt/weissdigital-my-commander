@@ -34,4 +34,8 @@ public enum MycCommand
     SameDirectory,
     SwapPanels,
     Reveal,
+    CommandPalette,
+    CopyPath,
+    CopyName,
+    NewFile,
 }

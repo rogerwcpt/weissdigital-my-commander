@@ -79,6 +79,18 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void An_editor_command_is_trimmed_and_blank_stays_empty()
+    {
+        var store = new ConfigStore(_root);
+
+        store.SaveSettings(AppSettings.Default with { Editor = "  hx  " });
+        Assert.Equal("hx", store.LoadSettings().Editor);
+
+        store.SaveSettings(AppSettings.Default with { Editor = "   " });
+        Assert.Equal("", store.LoadSettings().Editor);
+    }
+
+    [Fact]
     public void A_missing_directory_walks_up_to_a_parent_that_exists()
     {
         string parent = Path.Combine(_root, "kept");

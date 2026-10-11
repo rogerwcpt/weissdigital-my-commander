@@ -15,6 +15,7 @@ public sealed record ConfirmationSettings
 /// <summary>
 /// Preferences in <c>~/.config/myc/settings.json</c>. <see cref="Startup"/> is <c>restore</c>
 /// (reopen the last folders) or <c>default</c> (left is the working directory, right is home).
+/// <see cref="Editor"/> is empty unless a command should win over <c>VISUAL</c> and <c>EDITOR</c>.
 /// </summary>
 public sealed record AppSettings
 {
@@ -27,6 +28,12 @@ public sealed record AppSettings
     public string Theme { get; init; } = DefaultTheme;
 
     public string Startup { get; init; } = RestoreStartup;
+
+    /// <summary>
+    /// External editor command. Empty uses <c>VISUAL</c>, then <c>EDITOR</c>, then the OS text editor.
+    /// <c>{file}</c> is the path; otherwise the path is appended.
+    /// </summary>
+    public string Editor { get; init; } = "";
 
     public static AppSettings Default { get; } = new();
 
@@ -43,6 +50,7 @@ public sealed record AppSettings
             Confirm = confirm,
             Theme = ThemeNames.Canonical(Theme),
             Startup = Startup == DefaultStartup ? DefaultStartup : RestoreStartup,
+            Editor = string.IsNullOrWhiteSpace(Editor) ? "" : Editor.Trim(),
         };
     }
 }

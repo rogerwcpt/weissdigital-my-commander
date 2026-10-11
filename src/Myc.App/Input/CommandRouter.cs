@@ -28,6 +28,8 @@ internal sealed class CommandRouter
     private readonly FilePanelView _left;
     private readonly FilePanelView _right;
     private readonly JobRunner _jobs;
+    private readonly IFileOpener _opener;
+    private readonly Func<string> _editor;
     private readonly ITrash _trash = new MacTrash();
     private readonly List<string> _gotoHistory = [];
     private Func<ConfirmationSettings> _confirm = () => ConfirmationSettings.Default;
@@ -36,15 +38,24 @@ internal sealed class CommandRouter
     private AppMenu? _menu;
     private bool _escapePending;
 
-    public CommandRouter(IApplication app, Window window, IFileSystem files, FilePanelView left, FilePanelView right)
+    public CommandRouter(
+        IApplication app,
+        Window window,
+        IFileSystem files,
+        FilePanelView left,
+        FilePanelView right,
+        IFileOpener opener,
+        Func<string> editor)
     {
         _app = app;
         _window = window;
         _files = files;
         _left = left;
         _right = right;
+        _opener = opener;
+        _editor = editor;
         _active = left;
-        _jobs = new JobRunner(app, () => _confirm().Overwrite);
+        _jobs = new JobRunner(app, () => _confirm().Overwrite, () => ReferenceEquals(app.TopRunnable, window));
         left.BecameFocused += panel => _active = panel;
         right.BecameFocused += panel => _active = panel;
     }
@@ -132,6 +143,21 @@ internal sealed class CommandRouter
                 break;
             case MycCommand.View:
                 ViewFile();
+                break;
+            case MycCommand.Edit:
+                EditFile();
+                break;
+            case MycCommand.CommandPalette:
+                ShowPalette();
+                break;
+            case MycCommand.CopyPath:
+                CopyPath();
+                break;
+            case MycCommand.CopyName:
+                CopyName();
+                break;
+            case MycCommand.NewFile:
+                NewFile();
                 break;
             case MycCommand.Refresh:
                 ActivePanel().Refresh();
@@ -310,7 +336,8 @@ internal sealed class CommandRouter
 
         if (pressed is KeyToken.CtrlF3 or KeyToken.CtrlF4 or KeyToken.CtrlF5 or KeyToken.CtrlF6 or KeyToken.AltPeriod
             or KeyToken.Plus or KeyToken.Minus or KeyToken.Star or KeyToken.CtrlA
-            or KeyToken.CtrlG or KeyToken.CtrlU or KeyToken.AltEquals or KeyToken.CtrlO)
+            or KeyToken.CtrlG or KeyToken.CtrlU or KeyToken.AltEquals or KeyToken.CtrlO
+            or KeyToken.CtrlP or KeyToken.CtrlShiftP)
         {
             if (CommandCatalog.Find(pressed) is { Available: true } spec)
             {
@@ -328,6 +355,146 @@ internal sealed class CommandRouter
         }
 
         Invoke(spec.Command);
+    }
+
+    private void ShowPalette()
+    {
+        MycCommand? command = CommandPalette.Ask(_app);
+        if (command is null)
+        {
+            return;
+        }
+
+        _app.AddTimeout(TimeSpan.Zero, () =>
+        {
+            Invoke(command.Value);
+            return false;
+        });
+    }
+
+    private void EditFile()
+    {
+        if (ActivePanel() is not { } panel)
+        {
+            return;
+        }
+
+        FileEntry? entry = panel.CursorEntry;
+        if (entry is null || entry.IsParent || entry.IsContainer)
+        {
+            panel.ShowError("Not a file.");
+            return;
+        }
+
+        string? handler = EditorLaunch.CurrentHost == EditorHost.Linux ? SystemFileOpener.TextPlainHandler() : null;
+        ExternalEdit edit = EditorLaunch.Resolve(
+            entry.FullPath,
+            _editor(),
+            Environment.GetEnvironmentVariable("VISUAL"),
+            Environment.GetEnvironmentVariable("EDITOR"),
+            EditorLaunch.CurrentHost,
+            handler);
+        bool tookTerminal = edit is ExternalEdit.Spawn { TakeTerminal: true };
+        string? error = edit is ExternalEdit.Spawn { TakeTerminal: true } spawn
+            ? TerminalHandoff.RunEditor(_app, spawn)
+            : _opener.Start(edit);
+        if (error is null)
+        {
+            panel.ClearError();
+            if (tookTerminal)
+            {
+                panel.Refresh();
+            }
+        }
+        else
+        {
+            panel.ShowError(error);
+        }
+    }
+
+    private void CopyPath()
+    {
+        if (CursorText(path: true) is not { } text)
+        {
+            return;
+        }
+
+        CopyText(text);
+    }
+
+    private void CopyName()
+    {
+        if (CursorText(path: false) is not { } text)
+        {
+            return;
+        }
+
+        CopyText(text);
+    }
+
+    private string? CursorText(bool path)
+    {
+        FilePanelView panel = ActivePanel();
+        if (panel.CursorEntry is not { } entry || panel.Directory.Length == 0)
+        {
+            panel.ShowError("Nothing to copy.");
+            return null;
+        }
+
+        if (path)
+        {
+            return entry.IsParent ? panel.Directory : entry.FullPath;
+        }
+
+        if (!entry.IsParent)
+        {
+            return entry.Name;
+        }
+
+        string directory = panel.Directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string name = Path.GetFileName(directory);
+        return name.Length == 0 ? panel.Directory : name;
+    }
+
+    private void CopyText(string text)
+    {
+        FilePanelView panel = ActivePanel();
+        if (_app.Clipboard is not { IsSupported: true } clipboard || !clipboard.TrySetClipboardData(text))
+        {
+            panel.ShowError("Couldn't copy that.");
+            return;
+        }
+
+        panel.ClearError();
+    }
+
+    private void NewFile()
+    {
+        if (ActivePanel() is not { } panel)
+        {
+            return;
+        }
+
+        string typed = "";
+        string? error = null;
+        while (true)
+        {
+            NameAnswer answer = NamePrompt.Ask(_app, "New file", "New file name:", "Create", typed, 0, error);
+            if (answer.Text is null)
+            {
+                return;
+            }
+
+            FileChange change = _files.CreateFile(panel.Directory, answer.Text);
+            if (change.Succeeded)
+            {
+                RefreshAffected(panel, change.SelectedName, null, null);
+                return;
+            }
+
+            typed = answer.Text;
+            error = change.Error;
+        }
     }
 
     private void ViewFile()

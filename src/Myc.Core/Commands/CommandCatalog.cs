@@ -19,7 +19,7 @@ public static class CommandCatalog
         new(MycCommand.Help, "Help", "Show this key reference", true, KeyToken.F1),
         new(MycCommand.Rename, "Rename", "Rename the item under the cursor", true, KeyToken.F2),
         new(MycCommand.View, "View", "View this file", true, KeyToken.F3),
-        new(MycCommand.Edit, "—", "Reserved", false, KeyToken.F4),
+        new(MycCommand.Edit, "Edit", "Edit this file", true, KeyToken.F4),
         new(MycCommand.Copy, "Copy", "Copy the selection to the other panel", true, KeyToken.F5),
         new(MycCommand.Move, "Move", "Move the selection to the other panel", true, KeyToken.F6),
         new(MycCommand.MakeDirectory, "MkDir", "Create a directory", true, KeyToken.F7),
@@ -48,6 +48,44 @@ public static class CommandCatalog
         new(MycCommand.SameDirectory, "Same", "Show this folder in the other panel", true, KeyToken.AltEquals),
         new(MycCommand.SwapPanels, "Swap", "Swap the two panels", true, KeyToken.CtrlU),
         new(MycCommand.Reveal, "Reveal", "Show this item in Finder", true, KeyToken.CtrlO),
+        new(MycCommand.CommandPalette, "Commands", "Open the command palette", true, KeyToken.CtrlShiftP, KeyToken.CtrlP),
+        new(MycCommand.CopyPath, "Copy path", "Copy the full path", true),
+        new(MycCommand.CopyName, "Copy name", "Copy the file name", true),
+        new(MycCommand.NewFile, "New file", "Create an empty file", true),
+    ];
+
+    /// <summary>Commands the palette lists, in the order they appear with an empty filter.</summary>
+    public static IReadOnlyList<CommandSpec> Palette { get; } =
+    [
+        Spec(MycCommand.Help),
+        Spec(MycCommand.Rename),
+        Spec(MycCommand.View),
+        Spec(MycCommand.Edit),
+        Spec(MycCommand.Copy),
+        Spec(MycCommand.Move),
+        Spec(MycCommand.MakeDirectory),
+        Spec(MycCommand.Delete),
+        Spec(MycCommand.Quit),
+        Spec(MycCommand.PermanentDelete),
+        Spec(MycCommand.Refresh),
+        Spec(MycCommand.ToggleHidden),
+        Spec(MycCommand.SortName),
+        Spec(MycCommand.SortExtension),
+        Spec(MycCommand.SortSize),
+        Spec(MycCommand.SortModified),
+        Spec(MycCommand.SelectPattern),
+        Spec(MycCommand.DeselectPattern),
+        Spec(MycCommand.InvertSelection),
+        Spec(MycCommand.SelectAll),
+        Spec(MycCommand.ClearMarks),
+        Spec(MycCommand.GoToPath),
+        Spec(MycCommand.SameDirectory),
+        Spec(MycCommand.SwapPanels),
+        Spec(MycCommand.Reveal),
+        Spec(MycCommand.Activate),
+        Spec(MycCommand.CopyPath),
+        Spec(MycCommand.CopyName),
+        Spec(MycCommand.NewFile),
     ];
 
     public static IReadOnlyList<CommandSpec> Bar { get; } =
@@ -99,6 +137,16 @@ public static class CommandCatalog
             lines.Add($"{string.Join(", ", extra.Select(Display)),-18} {spec.Summary}");
         }
 
+        foreach (CommandSpec spec in Palette)
+        {
+            if (spec.Keys.Length > 0)
+            {
+                continue;
+            }
+
+            lines.Add($"{spec.Label,-18} {spec.Summary}");
+        }
+
         return string.Join('\n', lines);
     }
 
@@ -133,8 +181,12 @@ public static class CommandCatalog
         KeyToken.CtrlU => "Ctrl+U",
         KeyToken.AltEquals => "Alt+=",
         KeyToken.CtrlO => "Ctrl+O",
+        KeyToken.CtrlShiftP => "Ctrl+Shift+P",
+        KeyToken.CtrlP => "Ctrl+P",
         _ => key.ToString(),
     };
+
+    private static CommandSpec Spec(MycCommand command) => All.First(spec => spec.Command == command);
 
     private static string Cell(KeyToken key)
     {

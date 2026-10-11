@@ -127,6 +127,7 @@ internal sealed class AppMenu
             Item("Move to Trash…", Key.F8, Defer(app, invoke, MycCommand.Delete)),
             Item("Open with default app", Key.Enter, Defer(app, invoke, MycCommand.Activate)),
             Item("View", Key.F3, Defer(app, invoke, MycCommand.View)),
+            Item("Edit", Key.F4, Defer(app, invoke, MycCommand.Edit)),
             Item("Reveal in Finder", Key.O.WithCtrl, Defer(app, invoke, MycCommand.Reveal)),
             new Line { Orientation = Orientation.Horizontal },
             Item("Quit", Key.F10, Defer(app, invoke, MycCommand.Quit)),

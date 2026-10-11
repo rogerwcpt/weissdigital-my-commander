@@ -138,6 +138,46 @@ public sealed class LocalFileSystem : IFileSystem
         }
     }
 
+    public FileChange CreateFile(string directory, string name)
+    {
+        string trimmed = name.Trim();
+        if (EntryNames.ComponentRejection(trimmed) is { } rejection)
+        {
+            return Fail(rejection);
+        }
+
+        string full = Path.GetFullPath(directory);
+        string target = Path.GetFullPath(Path.Combine(full, trimmed));
+        string prefix = full.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        if (!target.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return Fail("Use a name inside this folder.");
+        }
+
+        try
+        {
+            if (!Directory.Exists(full))
+            {
+                return Fail("That folder is no longer there.");
+            }
+
+            if (Occupies(full, trimmed) || (CollidesIgnoringCase(full, null, trimmed) && !IsCaseSensitive(full)))
+            {
+                return Fail("That name is already used.");
+            }
+
+            using (File.Create(target))
+            {
+            }
+
+            return new FileChange(trimmed, null);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Fail(exception.Message);
+        }
+    }
+
     private static FileChange Fail(string error) => new(null, error);
 
     private static FileEntry? ParentOf(string directory)

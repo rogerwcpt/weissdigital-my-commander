@@ -62,4 +62,6 @@ public enum KeyToken
     CtrlU,
     AltEquals,
     CtrlO,
+    CtrlP,
+    CtrlShiftP,
 }

@@ -51,6 +51,16 @@ public class CommandCatalogTests
 
         Assert.Contains("F5   Copy", help);
         Assert.Contains("F3   View", help);
+        Assert.Contains("F4   Edit", help);
+        Assert.Contains("Ctrl+Shift+P", help);
+        Assert.Contains("Copy path", help);
+        Assert.Contains("New file", help);
+        Assert.True(CommandCatalog.Find(KeyToken.F4)!.Available);
+        Assert.Equal(MycCommand.Edit, CommandCatalog.Find(KeyToken.F4)!.Command);
+        Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.Copy);
+        Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.Edit);
+        Assert.DoesNotContain(CommandCatalog.Palette, spec => spec.Command == MycCommand.Menu);
+        Assert.DoesNotContain(CommandCatalog.Palette, spec => spec.Command == MycCommand.MoveCursor);
         Assert.Contains("F9   Menu", help);
         Assert.True(CommandCatalog.Find(KeyToken.F9)!.Available);
         Assert.Contains("F10  Quit", help);
@@ -71,6 +81,6 @@ public class CommandCatalogTests
         Assert.Contains("Show this item in Finder", help);
 
         int lines = help.Split('\n').Length;
-        Assert.InRange(lines, 10, 36);
+        Assert.InRange(lines, 10, 44);
     }
 }
