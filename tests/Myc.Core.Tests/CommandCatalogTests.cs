@@ -75,7 +75,7 @@ public class CommandCatalogTests
         Assert.Contains("Ctrl+A", help);
         Assert.Contains("matching a pattern", help);
         Assert.Contains("Ctrl+G", help);
-        Assert.Contains("Alt+=", help);
+        Assert.Contains("Ctrl+E", help);
         Assert.Contains("Ctrl+U", help);
         Assert.Contains("Ctrl+O", help);
         Assert.Contains("Alt+O", help);

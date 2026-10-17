@@ -357,7 +357,7 @@ internal sealed class CommandRouter
 
         if (pressed is KeyToken.CtrlF3 or KeyToken.CtrlF4 or KeyToken.CtrlF5 or KeyToken.CtrlF6 or KeyToken.AltPeriod
             or KeyToken.Plus or KeyToken.Minus or KeyToken.Star or KeyToken.CtrlA
-            or KeyToken.CtrlG or KeyToken.CtrlU or KeyToken.AltEquals or KeyToken.CtrlO
+            or KeyToken.CtrlG or KeyToken.CtrlU or KeyToken.CtrlE or KeyToken.CtrlO
             or KeyToken.CtrlP or KeyToken.CtrlShiftP or KeyToken.AltO or KeyToken.AltC)
         {
             if (CommandCatalog.Find(pressed) is { Available: true } spec)

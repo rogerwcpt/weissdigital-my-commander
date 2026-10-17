@@ -92,9 +92,9 @@ internal static class KeyMap
             return KeyToken.CtrlP;
         }
 
-        if (key == new Key('=').WithAlt)
+        if (key == Key.E.WithCtrl && !key.IsAlt && !key.IsShift)
         {
-            return KeyToken.AltEquals;
+            return KeyToken.CtrlE;
         }
 
         if (!key.IsCtrl && !key.IsAlt)

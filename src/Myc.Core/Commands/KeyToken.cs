@@ -60,7 +60,7 @@ public enum KeyToken
     CtrlA,
     CtrlG,
     CtrlU,
-    AltEquals,
+    CtrlE,
     CtrlO,
     CtrlP,
     CtrlShiftP,

@@ -167,7 +167,7 @@ internal sealed class AppMenu
                 Item("Go to path…", Key.G.WithCtrl, Defer(app, invoke, MycCommand.GoToPath)),
                 Item("Shell", Key.O.WithAlt, Defer(app, invoke, MycCommand.Shell)),
                 Item("Refresh", Key.R.WithCtrl, Defer(app, invoke, MycCommand.Refresh)),
-                Item("Same directory in other panel", new Key('=').WithAlt, Defer(app, invoke, MycCommand.SameDirectory)),
+                Item("Same directory in other panel", Key.E.WithCtrl, Defer(app, invoke, MycCommand.SameDirectory)),
                 Item("Swap panels", Key.U.WithCtrl, Defer(app, invoke, MycCommand.SwapPanels)),
             ]);
     }
