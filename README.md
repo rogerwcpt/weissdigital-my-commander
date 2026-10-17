@@ -54,9 +54,52 @@ F9 opens the menu, and every item shows its shortcut, so the menu is also the ch
 
 F3 views the file under the cursor. Esc or F3 closes the viewer, and `M` switches a Markdown file between rendered and source. F4 edits that file in an external editor: a command in `settings.json`, or `$VISUAL`, or `$EDITOR`, or the system text editor. vim and nano take the screen until you quit them; a graphical editor stays in its own window. `Ctrl+Shift+P` or `Ctrl+P` opens the command palette. On a Mac, Esc then a digit does the same as the function key.
 
+## Install
+
+A merge to `main` publishes the next release. The version is the next patch on the highest `vX.Y.Z` tag. The first release is `v0.1.0`, and each one stays in the list. The archives are on the [Releases](https://github.com/rogerwcpt/weissdigital-my-commander/releases) page.
+
+The archive includes the runtime. Unpack it and put `myc` on your `PATH`. On Windows the program is `myc.exe`.
+
+| Archive | Machine |
+| --- | --- |
+| `myc-<version>-osx-arm64.tar.gz` | Apple silicon |
+| `myc-<version>-osx-x64.tar.gz` | Intel Mac |
+| `myc-<version>-linux-x64.tar.gz` | Linux, 64-bit |
+| `myc-<version>-linux-arm64.tar.gz` | Linux, ARM |
+| `myc-<version>-win-x64.zip` | Windows, 64-bit |
+
+`SHA256SUMS` sits beside the archives.
+
+### macOS
+
+`myc` runs in a terminal. A browser download is quarantined by Gatekeeper. Opening the file from Finder shows “Apple could not verify myc is free of malware.” Click Done on that dialog. Move to Bin throws the download away.
+
+In the folder that contains `myc`:
+
+```bash
+xattr -d com.apple.quarantine myc
+chmod +x myc
+./myc
+```
+
+`xattr -l myc` lists the file's attributes. `com.apple.quarantine` means Gatekeeper is still holding it. Apple silicon uses `myc-<version>-osx-arm64.tar.gz`. An Intel Mac uses `myc-<version>-osx-x64.tar.gz`.
+
+A download with `curl` never receives the quarantine flag. For the v0.1.0 Apple silicon archive:
+
+```bash
+curl -L -o myc.tar.gz https://github.com/rogerwcpt/weissdigital-my-commander/releases/download/v0.1.0/myc-0.1.0-osx-arm64.tar.gz
+tar -xzf myc.tar.gz
+chmod +x myc
+./myc
+```
+
+A later release uses the same commands with its own version in the file name. The build is ad-hoc signed. A browser download keeps showing the dialog until the release is notarized with an Apple Developer ID.
+
 ## Run
 
 The command is `myc`. The first launch opens the current directory on the left and your home folder on the right. Later launches reopen the folders you left, unless `~/.config/myc/settings.json` says `"startup": "default"`. Config lives in `~/.config/myc/`. The plan is in [plan/](plan/README.md).
+
+From a checkout, with the .NET 10 SDK:
 
 ```bash
 dotnet test src/Myc.sln
