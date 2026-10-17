@@ -27,6 +27,7 @@ public sealed class FilePanelView : View
     private string _sort = PanelSort.Name;
     private bool _descending;
     private string? _error;
+    private string? _jump;
     private int _cursor;
     private int _scroll;
 
@@ -156,6 +157,54 @@ public sealed class FilePanelView : View
         }
 
         _error = null;
+        SetNeedsDraw();
+    }
+
+    /// <summary>The type-to-jump sequence currently shown in the footer, or null when idle.</summary>
+    public string? JumpQuery => _jump;
+
+    public void ClearJump()
+    {
+        if (_jump is null)
+        {
+            return;
+        }
+
+        _jump = null;
+        SetNeedsDraw();
+    }
+
+    /// <summary>Moves to the first prefix match and shows the query. A miss leaves the cursor where it is.</summary>
+    public bool AcceptJump(string query)
+    {
+        int index = NameJump.Find(ListedNames(), query);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _jump = query;
+        MoveTo(index);
+        return true;
+    }
+
+    /// <summary>Shows a shorter query and moves when that prefix still matches.</summary>
+    public void ShowJump(string query)
+    {
+        if (query.Length == 0)
+        {
+            ClearJump();
+            return;
+        }
+
+        _jump = query;
+        int index = NameJump.Find(ListedNames(), query);
+        if (index >= 0)
+        {
+            MoveTo(index);
+            return;
+        }
+
         SetNeedsDraw();
     }
 
@@ -368,6 +417,7 @@ public sealed class FilePanelView : View
         {
             _marks.Clear();
             _scroll = 0;
+            _jump = null;
         }
 
         _marks.RemoveWhere(name => _entries.All(entry => !EntryNames.Same(entry.Name, name)));
@@ -527,6 +577,11 @@ public sealed class FilePanelView : View
             return _error;
         }
 
+        if (_jump is not null)
+        {
+            return "Jump: " + _jump;
+        }
+
         List<FileEntry> marked = _entries.Where(entry => _marks.Contains(entry.Name)).ToList();
         if (marked.Count > 0)
         {
@@ -639,6 +694,17 @@ public sealed class FilePanelView : View
         string clipped = EntryText.EllipsizeMiddle(text, width, value => value.GetColumns());
         int gap = width - clipped.GetColumns();
         return gap > 0 ? clipped + new string(' ', gap) : clipped;
+    }
+
+    private string[] ListedNames()
+    {
+        var names = new string[_entries.Count];
+        for (int index = 0; index < _entries.Count; index++)
+        {
+            names[index] = _entries[index].Name;
+        }
+
+        return names;
     }
 
     private int IndexOf(string name)

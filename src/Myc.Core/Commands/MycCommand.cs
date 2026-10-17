@@ -38,4 +38,5 @@ public enum MycCommand
     CopyPath,
     CopyName,
     NewFile,
+    Shell,
 }

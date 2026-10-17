@@ -48,9 +48,10 @@ public static class CommandCatalog
         new(MycCommand.SameDirectory, "Same", "Show this folder in the other panel", true, KeyToken.AltEquals),
         new(MycCommand.SwapPanels, "Swap", "Swap the two panels", true, KeyToken.CtrlU),
         new(MycCommand.Reveal, "Reveal", "Show this item in Finder", true, KeyToken.CtrlO),
+        new(MycCommand.Shell, "Shell", "Open a shell in this folder", true, KeyToken.AltO),
         new(MycCommand.CommandPalette, "Commands", "Open the command palette", true, KeyToken.CtrlShiftP, KeyToken.CtrlP),
         new(MycCommand.CopyPath, "Copy path", "Copy the full path", true),
-        new(MycCommand.CopyName, "Copy name", "Copy the file name", true),
+        new(MycCommand.CopyName, "Copy name", "Copy the name of this file or folder", true, KeyToken.AltC),
         new(MycCommand.NewFile, "New file", "Create an empty file", true),
     ];
 
@@ -82,6 +83,7 @@ public static class CommandCatalog
         Spec(MycCommand.SameDirectory),
         Spec(MycCommand.SwapPanels),
         Spec(MycCommand.Reveal),
+        Spec(MycCommand.Shell),
         Spec(MycCommand.Activate),
         Spec(MycCommand.CopyPath),
         Spec(MycCommand.CopyName),
@@ -123,6 +125,7 @@ public static class CommandCatalog
 
         lines.Add($"{Display(KeyToken.ShiftF8),-10} {Find(KeyToken.ShiftF8)!.Summary}");
         lines.Add("Esc, then 1-9 or 0, does the same as F1-F10. Option+digit does the same.");
+        lines.Add("Type letters or digits to jump. The sequence clears after 2 seconds.");
         lines.Add("Esc closes a dialog and does nothing else. Progress: Esc cancels.");
         lines.Add("");
 
@@ -181,6 +184,8 @@ public static class CommandCatalog
         KeyToken.CtrlU => "Ctrl+U",
         KeyToken.AltEquals => "Alt+=",
         KeyToken.CtrlO => "Ctrl+O",
+        KeyToken.AltO => "Alt+O",
+        KeyToken.AltC => "Alt+C",
         KeyToken.CtrlShiftP => "Ctrl+Shift+P",
         KeyToken.CtrlP => "Ctrl+P",
         _ => key.ToString(),

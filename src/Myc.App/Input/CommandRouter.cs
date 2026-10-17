@@ -37,6 +37,7 @@ internal sealed class CommandRouter
     private FilePanelView _active;
     private AppMenu? _menu;
     private bool _escapePending;
+    private object? _jumpTimer;
 
     public CommandRouter(
         IApplication app,
@@ -56,8 +57,8 @@ internal sealed class CommandRouter
         _editor = editor;
         _active = left;
         _jobs = new JobRunner(app, () => _confirm().Overwrite, () => ReferenceEquals(app.TopRunnable, window));
-        left.BecameFocused += panel => _active = panel;
-        right.BecameFocused += panel => _active = panel;
+        left.BecameFocused += NoteFocus;
+        right.BecameFocused += NoteFocus;
     }
 
     public void UseMenu(AppMenu menu) => _menu = menu;
@@ -66,6 +67,7 @@ internal sealed class CommandRouter
 
     public void Invoke(MycCommand command)
     {
+        ClearJump();
         if (command != MycCommand.Menu)
         {
             _menu?.Close();
@@ -140,6 +142,9 @@ internal sealed class CommandRouter
                 break;
             case MycCommand.Reveal:
                 ActivePanel().RevealCursor();
+                break;
+            case MycCommand.Shell:
+                OpenShell();
                 break;
             case MycCommand.View:
                 ViewFile();
@@ -296,9 +301,25 @@ internal sealed class CommandRouter
 
         if (key == Key.Esc)
         {
+            if (HasJump)
+            {
+                ClearJump();
+            }
+
             _escapePending = true;
             key.Handled = true;
             return;
+        }
+
+        if (TryTypeJump(key))
+        {
+            key.Handled = true;
+            return;
+        }
+
+        if (HasJump)
+        {
+            ClearJump();
         }
 
         if (KeyMap.Match(key) is not KeyToken pressed)
@@ -337,7 +358,7 @@ internal sealed class CommandRouter
         if (pressed is KeyToken.CtrlF3 or KeyToken.CtrlF4 or KeyToken.CtrlF5 or KeyToken.CtrlF6 or KeyToken.AltPeriod
             or KeyToken.Plus or KeyToken.Minus or KeyToken.Star or KeyToken.CtrlA
             or KeyToken.CtrlG or KeyToken.CtrlU or KeyToken.AltEquals or KeyToken.CtrlO
-            or KeyToken.CtrlP or KeyToken.CtrlShiftP)
+            or KeyToken.CtrlP or KeyToken.CtrlShiftP or KeyToken.AltO or KeyToken.AltC)
         {
             if (CommandCatalog.Find(pressed) is { Available: true } spec)
             {
@@ -410,6 +431,143 @@ internal sealed class CommandRouter
         {
             panel.ShowError(error);
         }
+    }
+
+    private void OpenShell()
+    {
+        FilePanelView panel = ActivePanel();
+        if (panel.Directory.Length == 0 || !Directory.Exists(panel.Directory))
+        {
+            panel.Refresh();
+            return;
+        }
+
+        string shell = ShellLaunch.Resolve(Environment.GetEnvironmentVariable("SHELL"), File.Exists);
+        string? error = TerminalHandoff.RunShell(_app, shell, panel.Directory);
+        panel.Refresh();
+        if (error is not null)
+        {
+            panel.ShowError(error);
+        }
+    }
+
+    private bool HasJump => _left.JumpQuery is not null || _right.JumpQuery is not null;
+
+    private void NoteFocus(FilePanelView panel)
+    {
+        if (!ReferenceEquals(_active, panel))
+        {
+            ClearJump();
+        }
+
+        _active = panel;
+    }
+
+    /// <summary>
+    /// Letters, digits, <c>.</c>, and <c>_</c> grow a prefix. <c>-</c> grows it only once one has started,
+    /// so a lone minus still deselects. A character that matches nothing is ignored.
+    /// </summary>
+    private bool TryTypeJump(Key key)
+    {
+        if (key.EventType == KeyEventType.Release)
+        {
+            return false;
+        }
+
+        FilePanelView panel = ActivePanel();
+        string current = panel.JumpQuery ?? "";
+        if ((key == Key.Backspace || key == Key.Backspace.WithShift) && !key.IsCtrl && !key.IsAlt)
+        {
+            if (current.Length == 0)
+            {
+                return false;
+            }
+
+            string shorter = current[..^1];
+            if (shorter.Length == 0)
+            {
+                ClearJump();
+            }
+            else
+            {
+                panel.ShowJump(shorter);
+                ArmJump();
+            }
+
+            return true;
+        }
+
+        char? typed = JumpCharacter(key, current.Length > 0);
+        if (typed is not char next)
+        {
+            return false;
+        }
+
+        if (!panel.AcceptJump(current + next))
+        {
+            if (current.Length > 0)
+            {
+                ArmJump();
+            }
+
+            return true;
+        }
+
+        ArmJump();
+        return true;
+    }
+
+    private static char? JumpCharacter(Key key, bool extending)
+    {
+        if (key.IsCtrl || key.IsAlt)
+        {
+            return null;
+        }
+
+        int value = key.AsRune.Value;
+        if (value is < 32 or > char.MaxValue)
+        {
+            return null;
+        }
+
+        char character = (char)value;
+        if (char.IsLetter(character) || char.IsDigit(character) || character is '.' or '_')
+        {
+            return character;
+        }
+
+        return extending && character == '-' ? character : null;
+    }
+
+    private void ArmJump()
+    {
+        CancelJumpTimer();
+        _jumpTimer = _app.AddTimeout(TimeSpan.FromSeconds(2), () =>
+        {
+            _jumpTimer = null;
+            _left.ClearJump();
+            _right.ClearJump();
+            return false;
+        });
+    }
+
+    private void ClearJump()
+    {
+        CancelJumpTimer();
+        _left.ClearJump();
+        _right.ClearJump();
+    }
+
+    private void CancelJumpTimer()
+    {
+        if (_jumpTimer is null)
+        {
+            return;
+        }
+
+        object timer = _jumpTimer;
+        _jumpTimer = null;
+        _app.RemoveTimeout(timer);
     }
 
     private void CopyPath()

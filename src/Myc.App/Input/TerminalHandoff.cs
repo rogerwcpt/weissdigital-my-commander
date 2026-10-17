@@ -8,7 +8,7 @@ using Terminal.Gui.Drivers;
 namespace Myc.App.Input;
 
 /// <summary>
-/// Runs a terminal editor on the real tty and then puts myc back.
+/// Runs a terminal editor or a shell on the real tty and then puts myc back.
 /// <see cref="IDriver.Suspend"/> is Ctrl+Z (SIGTSTP), so it is not used here.
 /// </summary>
 internal static class TerminalHandoff
@@ -20,6 +20,12 @@ internal static class TerminalHandoff
     private const int F_SETFD = 2;
     private const int FD_CLOEXEC = 1;
     private const int Eintr = 4;
+    private const int SigKill = 9;
+    private const int SigContMac = 19;
+    private const short PosixSpawnSetPgroup = 0x0002;
+
+    /// <summary>macOS only. On Linux this bit is <c>POSIX_SPAWN_SETSID</c>, which would drop the controlling terminal.</summary>
+    private const short PosixSpawnStartSuspended = 0x0080;
 
     private static int _tty = -1;
     private static nint _cooked;
@@ -66,6 +72,20 @@ internal static class TerminalHandoff
         }
 
         return RunUnix(app, spawn);
+    }
+
+    /// <summary>
+    /// Hands the real terminal to an interactive shell in <paramref name="directory"/>.
+    /// The shell is the foreground process group, so Ctrl+C and Ctrl+Z reach it. <c>exit</c> returns here.
+    /// </summary>
+    public static string? RunShell(IApplication app, string shell, string directory)
+    {
+        if (OperatingSystem.IsWindows() || !_haveCooked || _tty < 0)
+        {
+            return "This shell needs a terminal.";
+        }
+
+        return RunShellUnix(app, shell, directory);
     }
 
     private static string? RunUnix(IApplication app, ExternalEdit.Spawn spawn)
@@ -128,6 +148,98 @@ internal static class TerminalHandoff
             }
 
             ignoreInterrupt?.Dispose();
+        }
+
+        return error;
+    }
+
+    private static string? RunShellUnix(IApplication app, string shell, string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return "This shell needs a terminal.";
+        }
+
+        nint raw = Marshal.AllocHGlobal(TermiosSize);
+        if (tcgetattr(_tty, raw) != 0)
+        {
+            Marshal.FreeHGlobal(raw);
+            return "Could not prepare the terminal.";
+        }
+
+        using var parked = new StdinPark();
+        string? error = null;
+        bool left = false;
+        int child = -1;
+        bool resumed = false;
+        int foreground = -1;
+        PosixSignalRegistration? ignoreOutput = null;
+        try
+        {
+            if (!parked.Ready)
+            {
+                error = "Could not hand the terminal to the shell.";
+            }
+            else
+            {
+                LeaveScreen(app);
+                left = true;
+                if (tcsetattr(_tty, TCSANOW, _cooked) != 0)
+                {
+                    RunSttySane();
+                }
+
+                child = SpawnShell(shell, directory, out error);
+                if (child > 0)
+                {
+                    try
+                    {
+                        ignoreOutput = PosixSignalRegistration.Create(PosixSignal.SIGTTOU, static context => context.Cancel = true);
+                    }
+                    catch (PlatformNotSupportedException)
+                    {
+                    }
+
+                    // Take the tty before the shell reads it. On macOS the child is stopped until then,
+                    // so a prompt cannot lose the race and get SIGTTIN.
+                    foreground = getpgrp();
+                    if (foreground <= 0 || tcsetpgrp(_tty, child) != 0)
+                    {
+                        error = "Could not hand the terminal to the shell.";
+                    }
+                    else if (OperatingSystem.IsMacOS() && kill(child, SigContMac) != 0)
+                    {
+                        error = "Could not hand the terminal to the shell.";
+                    }
+                    else
+                    {
+                        resumed = true;
+                        WaitPid(child);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (child > 0 && !resumed)
+            {
+                kill(child, SigKill);
+                WaitPid(child);
+            }
+
+            if (foreground > 0)
+            {
+                tcsetpgrp(_tty, foreground);
+            }
+
+            tcsetattr(_tty, TCSANOW, raw);
+            Marshal.FreeHGlobal(raw);
+            if (left)
+            {
+                ReturnScreen(app);
+            }
+
+            ignoreOutput?.Dispose();
         }
 
         return error;
@@ -301,6 +413,153 @@ internal static class TerminalHandoff
         }
     }
 
+    private static int SpawnShell(string file, string directory, out string? error)
+    {
+        error = null;
+        string[] argv = [file];
+        nint argvBlock = AllocStrings(argv, out nint[] argStrings);
+        nint envBlock = AllocEnvironment(out nint[] envStrings);
+        try
+        {
+            int pid;
+            int rc = OperatingSystem.IsMacOS()
+                ? SpawnShellMac(file, directory, argvBlock, envBlock, out pid)
+                : SpawnShellLinux(file, directory, argvBlock, envBlock, out pid);
+            if (rc != 0)
+            {
+                error = "Could not run " + file + ".";
+                return -1;
+            }
+
+            return pid;
+        }
+        finally
+        {
+            Free(argStrings);
+            Free(envStrings);
+            Marshal.FreeHGlobal(argvBlock);
+            Marshal.FreeHGlobal(envBlock);
+        }
+    }
+
+    private static int SpawnShellMac(string file, string directory, nint argv, nint envp, out int pid)
+    {
+        nint actions = 0;
+        nint attr = 0;
+        pid = 0;
+        bool actionsReady = false;
+        bool attrReady = false;
+        try
+        {
+            if (posix_spawn_file_actions_init(ref actions) != 0)
+            {
+                return 1;
+            }
+
+            actionsReady = true;
+            if (posix_spawn_file_actions_adddup2(ref actions, _tty, 0) != 0
+                || posix_spawn_file_actions_adddup2(ref actions, _tty, 1) != 0
+                || posix_spawn_file_actions_adddup2(ref actions, _tty, 2) != 0
+                || posix_spawn_file_actions_addchdir_np(ref actions, directory) != 0)
+            {
+                return 1;
+            }
+
+            if (_tty > 2)
+            {
+                posix_spawn_file_actions_addclose(ref actions, _tty);
+            }
+
+            if (posix_spawnattr_init(ref attr) != 0)
+            {
+                return 1;
+            }
+
+            attrReady = true;
+            short flags = (short)(PosixSpawnSetPgroup | PosixSpawnStartSuspended);
+            if (posix_spawnattr_setflags(ref attr, flags) != 0
+                || posix_spawnattr_setpgroup(ref attr, 0) != 0)
+            {
+                return 1;
+            }
+
+            return posix_spawnp_attr(out pid, file, ref actions, ref attr, argv, envp);
+        }
+        finally
+        {
+            if (actionsReady)
+            {
+                posix_spawn_file_actions_destroy(ref actions);
+            }
+
+            if (attrReady)
+            {
+                posix_spawnattr_destroy(ref attr);
+            }
+        }
+    }
+
+    private static int SpawnShellLinux(string file, string directory, nint argv, nint envp, out int pid)
+    {
+        nint actions = Marshal.AllocHGlobal(OpaqueSize);
+        nint attr = Marshal.AllocHGlobal(OpaqueSize);
+        pid = 0;
+        bool actionsReady = false;
+        bool attrReady = false;
+        try
+        {
+            Zero(actions);
+            Zero(attr);
+            if (posix_spawn_file_actions_init_linux(actions) != 0)
+            {
+                return 1;
+            }
+
+            actionsReady = true;
+            if (posix_spawn_file_actions_adddup2_linux(actions, _tty, 0) != 0
+                || posix_spawn_file_actions_adddup2_linux(actions, _tty, 1) != 0
+                || posix_spawn_file_actions_adddup2_linux(actions, _tty, 2) != 0
+                || posix_spawn_file_actions_addchdir_linux(actions, directory) != 0)
+            {
+                return 1;
+            }
+
+            if (_tty > 2)
+            {
+                posix_spawn_file_actions_addclose_linux(actions, _tty);
+            }
+
+            if (posix_spawnattr_init_linux(attr) != 0)
+            {
+                return 1;
+            }
+
+            attrReady = true;
+            if (posix_spawnattr_setflags_linux(attr, PosixSpawnSetPgroup) != 0
+                || posix_spawnattr_setpgroup_linux(attr, 0) != 0)
+            {
+                return 1;
+            }
+
+            return posix_spawnp_attr_linux(out pid, file, actions, attr, argv, envp);
+        }
+        finally
+        {
+            if (actionsReady)
+            {
+                posix_spawn_file_actions_destroy_linux(actions);
+            }
+
+            if (attrReady)
+            {
+                posix_spawnattr_destroy_linux(attr);
+            }
+
+            Marshal.FreeHGlobal(actions);
+            Marshal.FreeHGlobal(attr);
+        }
+    }
+
     private static void WaitPid(int pid)
     {
         while (waitpid(pid, out _, 0) < 0)
@@ -450,6 +709,15 @@ internal static class TerminalHandoff
     private static extern int waitpid(int pid, out int status, int options);
 
     [DllImport("libc", SetLastError = true)]
+    private static extern int kill(int pid, int sig);
+
+    [DllImport("libc")]
+    private static extern int getpgrp();
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int tcsetpgrp(int fd, int pgrp);
+
+    [DllImport("libc", SetLastError = true)]
     private static extern int posix_spawn_file_actions_init(ref nint actions);
 
     [DllImport("libc", SetLastError = true)]
@@ -463,6 +731,24 @@ internal static class TerminalHandoff
 
     [DllImport("libc", SetLastError = true)]
     private static extern int posix_spawnp(out int pid, string file, ref nint actions, nint attr, nint argv, nint envp);
+
+    [DllImport("libc", EntryPoint = "posix_spawnp", SetLastError = true)]
+    private static extern int posix_spawnp_attr(out int pid, string file, ref nint actions, ref nint attr, nint argv, nint envp);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int posix_spawnattr_init(ref nint attr);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int posix_spawnattr_destroy(ref nint attr);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int posix_spawnattr_setflags(ref nint attr, short flags);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int posix_spawnattr_setpgroup(ref nint attr, int pgroup);
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int posix_spawn_file_actions_addchdir_np(ref nint actions, string path);
 
     [DllImport("libc", EntryPoint = "posix_spawn_file_actions_init", SetLastError = true)]
     private static extern int posix_spawn_file_actions_init_linux(nint actions);
@@ -478,4 +764,22 @@ internal static class TerminalHandoff
 
     [DllImport("libc", EntryPoint = "posix_spawnp", SetLastError = true)]
     private static extern int posix_spawnp_linux(out int pid, string file, nint actions, nint attr, nint argv, nint envp);
+
+    [DllImport("libc", EntryPoint = "posix_spawnp", SetLastError = true)]
+    private static extern int posix_spawnp_attr_linux(out int pid, string file, nint actions, nint attr, nint argv, nint envp);
+
+    [DllImport("libc", EntryPoint = "posix_spawnattr_init", SetLastError = true)]
+    private static extern int posix_spawnattr_init_linux(nint attr);
+
+    [DllImport("libc", EntryPoint = "posix_spawnattr_destroy", SetLastError = true)]
+    private static extern int posix_spawnattr_destroy_linux(nint attr);
+
+    [DllImport("libc", EntryPoint = "posix_spawnattr_setflags", SetLastError = true)]
+    private static extern int posix_spawnattr_setflags_linux(nint attr, short flags);
+
+    [DllImport("libc", EntryPoint = "posix_spawnattr_setpgroup", SetLastError = true)]
+    private static extern int posix_spawnattr_setpgroup_linux(nint attr, int pgroup);
+
+    [DllImport("libc", EntryPoint = "posix_spawn_file_actions_addchdir", SetLastError = true)]
+    private static extern int posix_spawn_file_actions_addchdir_linux(nint actions, string path);
 }
