@@ -173,7 +173,7 @@ internal static class TerminalHandoff
         int child = -1;
         bool resumed = false;
         int foreground = -1;
-        PosixSignalRegistration? ignoreOutput = null;
+        uint[]? savedSignals = null;
         try
         {
             if (!parked.Ready)
@@ -192,18 +192,14 @@ internal static class TerminalHandoff
                 child = SpawnShell(shell, directory, out error);
                 if (child > 0)
                 {
-                    try
-                    {
-                        ignoreOutput = PosixSignalRegistration.Create(PosixSignal.SIGTTOU, static context => context.Cancel = true);
-                    }
-                    catch (PlatformNotSupportedException)
-                    {
-                    }
-
+                    // Block SIGTTOU. Ignoring it (a handled PosixSignal) makes macOS
+                    // refuse tcsetpgrp with EIO, so the shell's cooked mode stays on
+                    // and keys come back as echoed text.
+                    savedSignals = BlockTerminalStop();
+                    foreground = getpgrp();
                     // Take the tty before the shell reads it. On macOS the child is stopped until then,
                     // so a prompt cannot lose the race and get SIGTTIN.
-                    foreground = getpgrp();
-                    if (foreground <= 0 || tcsetpgrp(_tty, child) != 0)
+                    if (savedSignals is null || foreground <= 0 || tcsetpgrp(_tty, child) != 0)
                     {
                         error = "Could not hand the terminal to the shell.";
                     }
@@ -233,13 +229,16 @@ internal static class TerminalHandoff
             }
 
             tcsetattr(_tty, TCSANOW, raw);
+            if (savedSignals is not null)
+            {
+                RestoreSignalMask(savedSignals);
+            }
+
             Marshal.FreeHGlobal(raw);
             if (left)
             {
                 ReturnScreen(app);
             }
-
-            ignoreOutput?.Dispose();
         }
 
         return error;
@@ -571,6 +570,26 @@ internal static class TerminalHandoff
         }
     }
 
+    /// <summary>
+    /// SIGTTOU is 22 on macOS and Linux. A blocked signal lets a background process
+    /// take the terminal back; an ignored one does not.
+    /// </summary>
+    private const int Sigttou = 22;
+
+    private static uint[]? BlockTerminalStop()
+    {
+        var block = new uint[32];
+        block[(Sigttou - 1) / 32] |= 1u << ((Sigttou - 1) % 32);
+        var previous = new uint[32];
+        return sigprocmask(SignalBlock, block, previous) == 0 ? previous : null;
+    }
+
+    private static void RestoreSignalMask(uint[] previous) => sigprocmask(SignalSetMask, previous, null);
+
+    private static int SignalBlock => OperatingSystem.IsLinux() ? 0 : 1;
+
+    private static int SignalSetMask => OperatingSystem.IsLinux() ? 2 : 3;
+
     private static void RunSttySane()
     {
         try
@@ -713,6 +732,9 @@ internal static class TerminalHandoff
 
     [DllImport("libc")]
     private static extern int getpgrp();
+
+    [DllImport("libc", SetLastError = true)]
+    private static extern int sigprocmask(int how, uint[] set, uint[]? old);
 
     [DllImport("libc", SetLastError = true)]
     private static extern int tcsetpgrp(int fd, int pgrp);
