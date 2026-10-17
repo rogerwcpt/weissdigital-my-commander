@@ -75,12 +75,18 @@ public class CommandCatalogTests
         Assert.Contains("Ctrl+A", help);
         Assert.Contains("matching a pattern", help);
         Assert.Contains("Ctrl+G", help);
-        Assert.Contains("Alt+=", help);
+        Assert.Contains("Ctrl+E", help);
         Assert.Contains("Ctrl+U", help);
         Assert.Contains("Ctrl+O", help);
+        Assert.Contains("Alt+O", help);
+        Assert.Contains("Alt+C", help);
+        Assert.Contains("Open a shell in this folder", help);
+        Assert.Contains("Copy the name of this file or folder", help);
+        Assert.Contains("The sequence clears after 2 seconds", help);
         Assert.Contains("Show this item in Finder", help);
+        Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.Shell);
 
         int lines = help.Split('\n').Length;
-        Assert.InRange(lines, 10, 44);
+        Assert.InRange(lines, 10, 48);
     }
 }

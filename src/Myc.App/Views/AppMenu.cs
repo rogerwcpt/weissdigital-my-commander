@@ -129,6 +129,8 @@ internal sealed class AppMenu
             Item("View", Key.F3, Defer(app, invoke, MycCommand.View)),
             Item("Edit", Key.F4, Defer(app, invoke, MycCommand.Edit)),
             Item("Reveal in Finder", Key.O.WithCtrl, Defer(app, invoke, MycCommand.Reveal)),
+            Item("Copy name", Key.C.WithAlt, Defer(app, invoke, MycCommand.CopyName)),
+            Dash("Copy path", Defer(app, invoke, MycCommand.CopyPath)),
             new Line { Orientation = Orientation.Horizontal },
             Item("Quit", Key.F10, Defer(app, invoke, MycCommand.Quit)),
         ]);
@@ -163,8 +165,9 @@ internal sealed class AppMenu
                 new MenuItem("Sort by", "", modes),
                 _hidden,
                 Item("Go to path…", Key.G.WithCtrl, Defer(app, invoke, MycCommand.GoToPath)),
+                Item("Shell", Key.O.WithAlt, Defer(app, invoke, MycCommand.Shell)),
                 Item("Refresh", Key.R.WithCtrl, Defer(app, invoke, MycCommand.Refresh)),
-                Item("Same directory in other panel", new Key('=').WithAlt, Defer(app, invoke, MycCommand.SameDirectory)),
+                Item("Same directory in other panel", Key.E.WithCtrl, Defer(app, invoke, MycCommand.SameDirectory)),
                 Item("Swap panels", Key.U.WithCtrl, Defer(app, invoke, MycCommand.SwapPanels)),
             ]);
     }

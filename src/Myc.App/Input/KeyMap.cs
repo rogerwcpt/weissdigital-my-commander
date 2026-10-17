@@ -72,6 +72,16 @@ internal static class KeyMap
             return KeyToken.CtrlO;
         }
 
+        if (key == Key.O.WithAlt && !key.IsCtrl && !key.IsShift)
+        {
+            return KeyToken.AltO;
+        }
+
+        if (key == Key.C.WithAlt && !key.IsCtrl && !key.IsShift)
+        {
+            return KeyToken.AltC;
+        }
+
         if (key == Key.P.WithCtrl.WithShift && !key.IsAlt)
         {
             return KeyToken.CtrlShiftP;
@@ -82,9 +92,9 @@ internal static class KeyMap
             return KeyToken.CtrlP;
         }
 
-        if (key == new Key('=').WithAlt)
+        if (key == Key.E.WithCtrl && !key.IsAlt && !key.IsShift)
         {
-            return KeyToken.AltEquals;
+            return KeyToken.CtrlE;
         }
 
         if (!key.IsCtrl && !key.IsAlt)
