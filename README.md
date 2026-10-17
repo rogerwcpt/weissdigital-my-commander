@@ -87,7 +87,7 @@ chmod +x myc
 A download with `curl` never receives the quarantine flag. For the v0.1.0 Apple silicon archive:
 
 ```bash
-curl -L -o myc.tar.gz https://github.com/rogerwcpt/weissdigital-my-commander/releases/download/v0.1.2/myc-0.1.2-osx-arm64.tar.gz
+curl -L -o myc.tar.gz https://github.com/rogerwcpt/weissdigital-my-commander/releases/download/v0.1.4/myc-0.1.4-osx-arm64.tar.gz
 tar -xzf myc.tar.gz
 chmod +x myc
 ./myc
