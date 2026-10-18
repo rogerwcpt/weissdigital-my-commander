@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^www\.mycommander\.app$ [NC]
+RewriteRule ^ https://mycommander.app%{REQUEST_URI} [L,R=301]
