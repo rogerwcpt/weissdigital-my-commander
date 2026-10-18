@@ -4,6 +4,9 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>myc</AssemblyName>
     <RootNamespace>Myc.App</RootNamespace>
+    <!-- Releases pass -p:Version. A local build stays 0.0.0-dev, which About shows as dev. -->
+    <Version>0.0.0-dev</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
