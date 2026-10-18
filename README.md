@@ -72,9 +72,13 @@ The archive includes the runtime. Unpack it and put `myc` on your `PATH`. On Win
 
 ### macOS
 
-`myc` runs in a terminal. A browser download is quarantined by Gatekeeper. Opening the file from Finder shows “Apple could not verify myc is free of malware.” Click Done on that dialog. Move to Bin throws the download away.
+```bash
+brew install rogerwcpt/myc/myc
+```
 
-In the folder that contains `myc`:
+Homebrew picks the Apple silicon or Intel build for this Mac and puts `myc` on your `PATH`.
+
+A browser download of a release archive is quarantined by Gatekeeper. Opening the file from Finder shows “Apple could not verify myc is free of malware.” Click Done on that dialog. Move to Bin throws the download away. In the folder that contains `myc`:
 
 ```bash
 xattr -d com.apple.quarantine myc
@@ -82,18 +86,7 @@ chmod +x myc
 ./myc
 ```
 
-`xattr -l myc` lists the file's attributes. `com.apple.quarantine` means Gatekeeper is still holding it. Apple silicon uses `myc-<version>-osx-arm64.tar.gz`. An Intel Mac uses `myc-<version>-osx-x64.tar.gz`.
-
-A download with `curl` never receives the quarantine flag. For the v0.1.0 Apple silicon archive:
-
-```bash
-curl -L -o myc.tar.gz https://github.com/rogerwcpt/weissdigital-my-commander/releases/download/v0.1.4/myc-0.1.4-osx-arm64.tar.gz
-tar -xzf myc.tar.gz
-chmod +x myc
-./myc
-```
-
-A later release uses the same commands with its own version in the file name. The build is ad-hoc signed. A browser download keeps showing the dialog until the release is notarized with an Apple Developer ID.
+`xattr -l myc` lists the file's attributes. `com.apple.quarantine` means Gatekeeper is still holding it. The build is ad-hoc signed. A browser download keeps showing the dialog until the release is notarized with an Apple Developer ID.
 
 ## Run
 
