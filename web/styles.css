@@ -210,6 +210,10 @@ h2 {
   text-wrap: pretty;
 }
 
+.hero .lede {
+  max-width: none;
+}
+
 .lede-tight {
   margin-top: 1rem;
 }
