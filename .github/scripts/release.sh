@@ -20,6 +20,7 @@ work_root=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 work_root=${work_root%/}
 publish_root="$work_root/myc-publish"
 dist_root="$work_root/myc-dist"
+published_version=""
 
 die() {
   printf '%s\n' "$*" >&2
@@ -153,8 +154,15 @@ package_release() {
   write_checksums "$dist" || return 1
 }
 
+# Version is known only after the tag is chosen. A retry that has to take the
+# next patch publishes again, so the binary's About box matches the release.
 publish_binaries() {
-  local rid binary extra
+  local version=$1
+  local ver rid binary extra
+  if [ "$published_version" = "$version" ]; then
+    return 0
+  fi
+  ver=${version#v}
   rm -rf "$publish_root"
   mkdir -p "$publish_root"
   for rid in "${RIDS[@]}"; do
@@ -166,6 +174,9 @@ publish_binaries() {
       -p:PublishSingleFile=true \
       -p:IncludeNativeLibrariesForSelfExtract=true \
       -p:EnableCompressionInSingleFile=true \
+      -p:Version="$ver" \
+      -p:InformationalVersion="$ver" \
+      -p:IncludeSourceRevisionInInformationalVersion=false \
       -p:DebugType=none \
       -p:DebugSymbols=false \
       --output "$publish_root/$rid" || return 1
@@ -182,6 +193,7 @@ publish_binaries() {
       return 1
     fi
   done
+  published_version=$version
 }
 
 fetch_tags() {
@@ -262,6 +274,7 @@ create_release_once() {
   fi
   version=$(compute_next_version) || return 1
   printf 'Publishing %s\n' "$version"
+  publish_binaries "$version" || return 1
   notes=$(mktemp)
   write_notes "$version" "$notes" || return 1
   package_release "$version" "$publish_root" "$dist_root" || return 1
@@ -422,7 +435,6 @@ main() {
   self_check
   command -v dotnet >/dev/null 2>&1 || die "dotnet is required."
   command -v gh >/dev/null 2>&1 || die "gh is required."
-  publish_binaries || die "Publish failed."
   publish_with_retry || die "Could not publish a release."
 }
 
