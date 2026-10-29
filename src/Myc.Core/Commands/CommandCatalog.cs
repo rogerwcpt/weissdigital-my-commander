@@ -53,6 +53,10 @@ public static class CommandCatalog
         new(MycCommand.CopyPath, "Copy path", "Copy the full path", true),
         new(MycCommand.CopyName, "Copy name", "Copy the name of this file or folder", true, KeyToken.AltC),
         new(MycCommand.NewFile, "New file", "Create an empty file", true),
+        new(MycCommand.ViewCertificate, "View certificate", "View this certificate", true),
+        new(MycCommand.ViewJwt, "View JWT", "Decode a JSON Web Token", true),
+        new(MycCommand.Checksum, "Checksum", "SHA-256 of the selection", true),
+        new(MycCommand.Duplicate, "Duplicate", "Copy the selection into this folder", true),
     ];
 
     /// <summary>Commands the palette lists, in the order they appear with an empty filter.</summary>
@@ -88,6 +92,10 @@ public static class CommandCatalog
         Spec(MycCommand.CopyPath),
         Spec(MycCommand.CopyName),
         Spec(MycCommand.NewFile),
+        Spec(MycCommand.ViewCertificate),
+        Spec(MycCommand.ViewJwt),
+        Spec(MycCommand.Checksum),
+        Spec(MycCommand.Duplicate),
     ];
 
     public static IReadOnlyList<CommandSpec> Bar { get; } =

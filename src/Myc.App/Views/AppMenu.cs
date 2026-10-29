@@ -121,6 +121,7 @@ internal sealed class AppMenu
         "File",
         [
             Item("Copy…", Key.F5, Defer(app, invoke, MycCommand.Copy)),
+            Dash("Duplicate", Defer(app, invoke, MycCommand.Duplicate)),
             Item("Move…", Key.F6, Defer(app, invoke, MycCommand.Move)),
             Item("Rename…", Key.F2, Defer(app, invoke, MycCommand.Rename)),
             Item("New folder…", Key.F7, Defer(app, invoke, MycCommand.MakeDirectory)),

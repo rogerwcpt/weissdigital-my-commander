@@ -139,7 +139,7 @@ internal static class CommandPalette
     {
         string key = spec.Keys.Length == 0 ? "" : CommandCatalog.Display(spec.Keys[0]);
         return string.IsNullOrEmpty(key)
-            ? $"{spec.Label,-14}{spec.Summary}"
-            : $"{spec.Label,-14}{key,-14}{spec.Summary}";
+            ? $"{spec.Label,-18}{spec.Summary}"
+            : $"{spec.Label,-18}{key,-14}{spec.Summary}";
     }
 }

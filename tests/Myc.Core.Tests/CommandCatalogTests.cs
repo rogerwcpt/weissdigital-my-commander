@@ -55,6 +55,12 @@ public class CommandCatalogTests
         Assert.Contains("Ctrl+Shift+P", help);
         Assert.Contains("Copy path", help);
         Assert.Contains("New file", help);
+        Assert.Contains("View certificate", help);
+        Assert.Contains("View JWT", help);
+        Assert.Contains("Checksum", help);
+        Assert.Contains("Duplicate", help);
+        Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.ViewCertificate);
+        Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.Duplicate);
         Assert.True(CommandCatalog.Find(KeyToken.F4)!.Available);
         Assert.Equal(MycCommand.Edit, CommandCatalog.Find(KeyToken.F4)!.Command);
         Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.Copy);

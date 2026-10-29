@@ -30,4 +30,15 @@ public class CopyNameTests
 
         Assert.Equal("notes (3).md", next);
     }
+
+    [Fact]
+    public void Next_duplicate_walks_to_a_free_name()
+    {
+        Assert.Equal("notes copy.md", CopyNames.NextDuplicate("notes.md", _ => false));
+        Assert.Equal("notes copy 2.md", CopyNames.NextDuplicate("notes.md", name => name == "notes copy.md"));
+        Assert.Equal(
+            "notes copy 3.md",
+            CopyNames.NextDuplicate("notes.md", name => name is "notes copy.md" or "notes copy 2.md"));
+        Assert.Equal(".gitignore copy 2", CopyNames.NextDuplicate(".gitignore", name => name == ".gitignore copy"));
+    }
 }

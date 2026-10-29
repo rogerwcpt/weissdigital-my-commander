@@ -37,6 +37,7 @@ modal surprises).
 | [05-roadmap.md](05-roadmap.md)           | Later work: F3 viewer, themes, panel modes, and beyond        |
 | [06-mvp4.md](06-mvp4.md)                 | MVP4 (proposed): a panel that hosts a shell or an AI CLI       |
 | [07-viewer.md](07-viewer.md)             | Full-screen F3 viewer, and whether Markdown can be rendered    |
+| [08-inspect.md](08-inspect.md)           | Certificate page, JWT page, checksum, and duplicate in place   |
 
 
 
@@ -50,6 +51,7 @@ modal surprises).
 | **MVP0**  | Dual panels, navigation, Space marking, F2/F5/F6/F7/F8, Tab, F10 quit, default non-NC theme          |
 | **MVP1**  | F9 menu bar (File / Select / Panel / Options), sort, hidden files, go-to-path, help, persisted state, theme selector |
 | **Viewer** | Full-screen F3: plain text, and Markdown rendered with Terminal.Gui's view. Can be built any time after MVP1. |
+| **Inspect** | Certificate page, JWT page, SHA-256 checksum, and duplicate-in-place. See [08-inspect.md](08-inspect.md). |
 | **MVP2**  | User JSON themes, live preview, more myc themes, auto light/dark                                     |
 | **MVP3**  | Panel modes: file list, quick preview, file/directory info                                           |
 | **MVP4**  | *Proposed.* Terminal panel for a shell or AI CLI, shell hand-off, send marked files to the prompt    |

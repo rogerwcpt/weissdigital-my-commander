@@ -39,4 +39,8 @@ public enum MycCommand
     CopyName,
     NewFile,
     Shell,
+    ViewCertificate,
+    ViewJwt,
+    Checksum,
+    Duplicate,
 }

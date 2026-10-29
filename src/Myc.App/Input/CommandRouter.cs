@@ -3,6 +3,7 @@ using Myc.App.Views;
 using Myc.Core.Commands;
 using Myc.Core.Configuration;
 using Myc.Core.FileSystem;
+using Myc.Core.Inspect;
 using Myc.Core.Sorting;
 using Myc.Core.Operations;
 using Myc.Core.Platform;
@@ -164,6 +165,18 @@ internal sealed class CommandRouter
             case MycCommand.NewFile:
                 NewFile();
                 break;
+            case MycCommand.ViewCertificate:
+                OpenView(certificateOnly: true);
+                break;
+            case MycCommand.ViewJwt:
+                ViewJwt();
+                break;
+            case MycCommand.Checksum:
+                Checksum();
+                break;
+            case MycCommand.Duplicate:
+                Duplicate();
+                break;
             case MycCommand.Refresh:
                 ActivePanel().Refresh();
                 break;
@@ -249,7 +262,7 @@ internal sealed class CommandRouter
                 return;
             }
 
-            if (IsPlainLetter(key, 'm'))
+            if (IsPlainLetter(key, 'm') && viewer.AllowsMarkdown)
             {
                 key.Handled = true;
                 viewer.ToggleMarkdown();
@@ -655,7 +668,9 @@ internal sealed class CommandRouter
         }
     }
 
-    private void ViewFile()
+    private void ViewFile() => OpenView(certificateOnly: false);
+
+    private void OpenView(bool certificateOnly)
     {
         if (ActivePanel() is not { } panel)
         {
@@ -676,8 +691,206 @@ internal sealed class CommandRouter
 
         string path = entry.FullPath;
         string name = entry.Name;
-        bool markdown = ViewerText.LooksLikeMarkdown(name);
-        _ = Task.Run(() => ViewerText.Read(path)).ContinueWith(done =>
+        string? password = null;
+        Read();
+
+        void Read()
+        {
+            _ = Task.Run(() => PrepareView(path, name, certificateOnly, password)).ContinueWith(done =>
+            {
+                try
+                {
+                    _app.Invoke(() =>
+                    {
+                        bool again = false;
+                        try
+                        {
+                            if (done.IsFaulted)
+                            {
+                                panel.ShowError(done.Exception?.GetBaseException().Message ?? "Could not read the file.");
+                                return;
+                            }
+
+                            PreparedView view = done.Result;
+                            if (view.Kind == PreparedKind.Password)
+                            {
+                                string? next = PasswordPrompt.Ask(_app, view.Error);
+                                if (next is null)
+                                {
+                                    return;
+                                }
+
+                                password = next;
+                                again = true;
+                                Read();
+                                return;
+                            }
+
+                            if (view.Kind == PreparedKind.Error)
+                            {
+                                panel.ShowError(view.Error ?? "Could not read the file.");
+                                return;
+                            }
+
+                            panel.ClearError();
+                            FileViewer.Show(_app, view.Title, view.Text, view.Rendered, view.Markdown);
+                        }
+                        finally
+                        {
+                            if (!again)
+                            {
+                                _viewOpening = 0;
+                            }
+                        }
+                    });
+                }
+                catch (ObjectDisposedException)
+                {
+                    _viewOpening = 0;
+                }
+            }, TaskScheduler.Default);
+        }
+    }
+
+    private static PreparedView PrepareView(string path, string name, bool certificateOnly, string? password)
+    {
+        if (certificateOnly || CertificateInspector.LooksLikeName(name) || SniffPem(path))
+        {
+            CertificateInspection inspection = CertificateInspector.Read(path, password, DateTimeOffset.Now);
+            switch (inspection.Status)
+            {
+                case CertificateStatus.NeedsPassword:
+                    return PreparedView.Password(inspection.Error);
+                case CertificateStatus.Ready:
+                    return PreparedView.Facts(name, inspection.Text);
+                default:
+                    if (certificateOnly || password is not null)
+                    {
+                        return PreparedView.Fail(inspection.Error ?? "This is not a certificate.");
+                    }
+
+                    break;
+            }
+        }
+
+        if (certificateOnly)
+        {
+            return PreparedView.Fail("This is not a certificate.");
+        }
+
+        ViewerText.Content content = ViewerText.Read(path);
+        if (!content.Ok)
+        {
+            return PreparedView.Fail(content.Error ?? "Could not read the file.");
+        }
+
+        if (JwtInspector.LooksLike(content.Text))
+        {
+            JwtInspection jwt = JwtInspector.Inspect(content.Text, DateTimeOffset.Now, TimeZoneInfo.Local);
+            if (jwt.Ok)
+            {
+                return PreparedView.Facts(name, jwt.Text);
+            }
+        }
+
+        return PreparedView.Source(name, content.Text, ViewerText.LooksLikeMarkdown(name));
+    }
+
+    private static bool SniffPem(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            byte[] buffer = new byte[64];
+            int read = stream.Read(buffer, 0, buffer.Length);
+            return CertificateInspector.LooksLikePem(buffer.AsSpan(0, read));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private void ViewJwt()
+    {
+        string initial = ClipboardJwt() ?? FileJwt() ?? "";
+        string? error = null;
+        while (true)
+        {
+            string? token = TokenPrompt.Ask(_app, initial, error);
+            if (token is null)
+            {
+                return;
+            }
+
+            JwtInspection inspection = JwtInspector.Inspect(token, DateTimeOffset.Now, TimeZoneInfo.Local);
+            if (!inspection.Ok)
+            {
+                initial = token;
+                error = inspection.Error;
+                continue;
+            }
+
+            FileViewer.Show(_app, "JWT", inspection.Text, rendered: false, markdown: false);
+            return;
+        }
+    }
+
+    private string? ClipboardJwt()
+    {
+        if (_app.Clipboard is not { IsSupported: true } clipboard || !clipboard.TryGetClipboardData(out string data))
+        {
+            return null;
+        }
+
+        string trimmed = data.Trim();
+        return JwtInspector.LooksLike(trimmed) ? trimmed : null;
+    }
+
+    private string? FileJwt()
+    {
+        if (ActivePanel().CursorEntry is not { } entry || entry.IsParent || entry.IsContainer)
+        {
+            return null;
+        }
+
+        try
+        {
+            var info = new FileInfo(entry.FullPath);
+            if (!info.Exists || info.Length > JwtInspector.MaxChars)
+            {
+                return null;
+            }
+
+            string text = File.ReadAllText(entry.FullPath).Trim();
+            return JwtInspector.LooksLike(text) ? text : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void Checksum()
+    {
+        if (ActivePanel() is not { } panel)
+        {
+            return;
+        }
+
+        FileEntry[] selection = EffectiveSelection.Resolve(panel.Entries, panel.Marks, panel.CursorIndex).ToArray();
+        if (selection.Length == 0)
+        {
+            panel.ShowError("Nothing to checksum.");
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _viewOpening, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _ = Task.Run(() => HashSelection(selection)).ContinueWith(done =>
         {
             try
             {
@@ -691,15 +904,8 @@ internal sealed class CommandRouter
                             return;
                         }
 
-                        ViewerText.Content content = done.Result;
-                        if (!content.Ok)
-                        {
-                            panel.ShowError(content.Error ?? "Could not read the file.");
-                            return;
-                        }
-
                         panel.ClearError();
-                        FileViewer.Show(_app, name, content.Text, markdown);
+                        FileViewer.Show(_app, "Checksum", done.Result, rendered: false, markdown: false);
                     }
                     finally
                     {
@@ -712,6 +918,88 @@ internal sealed class CommandRouter
                 _viewOpening = 0;
             }
         }, TaskScheduler.Default);
+    }
+
+    private static string HashSelection(IReadOnlyList<FileEntry> selection)
+    {
+        var rows = new List<Checksums.Row>(selection.Count);
+        foreach (FileEntry entry in selection)
+        {
+            if (entry.IsContainer)
+            {
+                rows.Add(new Checksums.Row(entry.Name, null, "Not a file."));
+                continue;
+            }
+
+            try
+            {
+                using var stream = new FileStream(entry.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                rows.Add(new Checksums.Row(entry.Name, Checksums.Sha256(stream), null));
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                rows.Add(new Checksums.Row(entry.Name, null, exception.Message));
+            }
+        }
+
+        return Checksums.Format(rows);
+    }
+
+    private void Duplicate()
+    {
+        if (ActivePanel() is not { } panel)
+        {
+            return;
+        }
+
+        if (_jobs.IsRunning)
+        {
+            panel.ShowError("Wait for the current operation to finish.");
+            return;
+        }
+
+        FileEntry[] selection = EffectiveSelection.Resolve(panel.Entries, panel.Marks, panel.CursorIndex).ToArray();
+        if (selection.Length == 0)
+        {
+            panel.ShowError("Nothing to duplicate.");
+            return;
+        }
+
+        string[] paths = selection.Select(entry => entry.FullPath).ToArray();
+        StartTransfer(
+            new CopyJob(paths, panel.Directory, duplicateInPlace: true, freeDuplicateName: true),
+            "Duplicate",
+            result =>
+            {
+                string? select = result.NamesCreated.Count > 0 ? result.NamesCreated[0] : null;
+                FinishTransfer(panel, select, result, clearMarks: result.Status == JobStatus.Completed);
+            });
+    }
+
+    private enum PreparedKind
+    {
+        Page,
+        Error,
+        Password,
+    }
+
+    private readonly record struct PreparedView(
+        PreparedKind Kind,
+        string Title,
+        string Text,
+        bool Rendered,
+        bool Markdown,
+        string? Error)
+    {
+        public static PreparedView Source(string title, string text, bool rendered) =>
+            new(PreparedKind.Page, title, text, rendered, true, null);
+
+        public static PreparedView Facts(string title, string text) =>
+            new(PreparedKind.Page, title, text, false, false, null);
+
+        public static PreparedView Fail(string error) => new(PreparedKind.Error, "", "", false, false, error);
+
+        public static PreparedView Password(string? error) => new(PreparedKind.Password, "", "", false, false, error);
     }
 
     private static bool IsPlainLetter(Key key, char lower)

@@ -10,6 +10,32 @@ public static class CopyNames
         return dot < 0 ? name + " copy" : string.Concat(name.AsSpan(0, dot), " copy", name.AsSpan(dot));
     }
 
+    /// <summary>
+    /// <c>notes.md</c> becomes <c>notes copy.md</c>, then <c>notes copy 2.md</c> when that name is taken.
+    /// </summary>
+    public static string NextDuplicate(string name, Func<string, bool> exists)
+    {
+        string first = Duplicate(name);
+        if (!exists(first))
+        {
+            return first;
+        }
+
+        int dot = ExtensionDot(name);
+        string stem = dot < 0 ? name : name[..dot];
+        string ext = dot < 0 ? "" : name[dot..];
+        for (int number = 2; number < 10_000; number++)
+        {
+            string candidate = stem + " copy " + number + ext;
+            if (!exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        throw new IOException("No free name.");
+    }
+
     /// <summary><c>notes.md</c> and <c>2</c> become <c>notes (2).md</c>.</summary>
     public static string Numbered(string name, int number)
     {

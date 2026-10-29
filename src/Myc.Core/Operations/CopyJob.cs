@@ -11,12 +11,18 @@ public sealed class CopyJob : IFileJob
     private readonly IReadOnlyList<string> _sources;
     private readonly string _destination;
     private readonly bool _duplicateInPlace;
+    private readonly bool _freeDuplicateName;
 
-    public CopyJob(IReadOnlyList<string> sources, string destination, bool duplicateInPlace = false)
+    public CopyJob(
+        IReadOnlyList<string> sources,
+        string destination,
+        bool duplicateInPlace = false,
+        bool freeDuplicateName = false)
     {
         _sources = sources;
         _destination = destination;
         _duplicateInPlace = duplicateInPlace;
+        _freeDuplicateName = freeDuplicateName;
     }
 
     public async Task<JobResult> RunAsync(
@@ -62,13 +68,26 @@ public sealed class CopyJob : IFileJob
 
             Report(progress, "", 0, 0, 0, 0, JobPhase.Scanning);
             List<PlannedItem> items = [];
+            var created = new List<string>();
+            var reserved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string source in _sources)
             {
                 string full = Full(source);
                 string top = Path.GetFileName(full);
                 if (_duplicateInPlace && SameFolder(full, destination))
                 {
-                    top = CopyNames.Duplicate(top);
+                    if (_freeDuplicateName)
+                    {
+                        top = CopyNames.NextDuplicate(
+                            top,
+                            candidate => reserved.Contains(candidate) || Exists(Path.Combine(destination, candidate)));
+                        reserved.Add(top);
+                        created.Add(top);
+                    }
+                    else
+                    {
+                        top = CopyNames.Duplicate(top);
+                    }
                 }
 
                 if (!await Walk(full, top, items, callbacks, cancellationToken))
@@ -135,7 +154,7 @@ public sealed class CopyJob : IFileJob
                 Report(progress, item.Relative, copied + skipped, items.Count, bytesDone, bytesTotal, JobPhase.Copying);
             }
 
-            return JobResult.Done(copied, skipped, copiedPaths);
+            return JobResult.Done(copied, skipped, copiedPaths, created.Count == 0 ? null : created);
         }
         catch (OperationCanceledException)
         {

@@ -92,6 +92,28 @@ public class CopyJobTests : IDisposable
     }
 
     [Fact]
+    public async Task A_free_duplicate_skips_a_name_that_is_taken()
+    {
+        File.WriteAllText(Path.Combine(_root, "notes.md"), "hello");
+        File.WriteAllText(Path.Combine(_root, "notes copy.md"), "taken");
+        Directory.CreateDirectory(Path.Combine(_root, "pics"));
+        File.WriteAllText(Path.Combine(_root, "pics", "reef.jpg"), "photo");
+
+        JobResult file = await new CopyJob([Path.Combine(_root, "notes.md")], _root, duplicateInPlace: true, freeDuplicateName: true)
+            .RunAsync(null, new ScriptedCallbacks(), CancellationToken.None);
+        JobResult folder = await new CopyJob([Path.Combine(_root, "pics")], _root, duplicateInPlace: true, freeDuplicateName: true)
+            .RunAsync(null, new ScriptedCallbacks(), CancellationToken.None);
+
+        Assert.Equal(JobStatus.Completed, file.Status);
+        Assert.Equal(["notes copy 2.md"], file.NamesCreated);
+        Assert.Equal("hello", File.ReadAllText(Path.Combine(_root, "notes copy 2.md")));
+        Assert.Equal("taken", File.ReadAllText(Path.Combine(_root, "notes copy.md")));
+        Assert.Equal(JobStatus.Completed, folder.Status);
+        Assert.Equal(["pics copy"], folder.NamesCreated);
+        Assert.Equal("photo", File.ReadAllText(Path.Combine(_root, "pics copy", "reef.jpg")));
+    }
+
+    [Fact]
     public async Task Conflict_overwrite_skip_and_rename()
     {
         string source = Path.Combine(_root, "src");

@@ -18,15 +18,17 @@ internal sealed class FileViewer : Window
     private readonly TextView _source;
 #pragma warning restore CS0618
     private readonly Label _status;
+    private readonly bool _markdownAllowed;
     private Markdown? _markdown;
     private Scheme _body = null!;
     private bool _rendered;
 
-    private FileViewer(string name, string text, bool rendered)
+    private FileViewer(string name, string text, bool rendered, bool markdown)
     {
         Title = name;
         _text = text;
         _rendered = rendered;
+        _markdownAllowed = markdown;
 #pragma warning disable CS0618
         _source = new TextView
 #pragma warning restore CS0618
@@ -60,11 +62,14 @@ internal sealed class FileViewer : Window
         Initialized += (_, _) => FocusBody();
     }
 
-    public static void Show(IApplication app, string name, string text, bool rendered)
+    /// <param name="markdown">When false, M does nothing. Inspection pages leave it off.</param>
+    public static void Show(IApplication app, string name, string text, bool rendered, bool markdown = true)
     {
-        using var viewer = new FileViewer(name, text, rendered);
+        using var viewer = new FileViewer(name, text, rendered, markdown);
         app.Run(viewer);
     }
+
+    public bool AllowsMarkdown => _markdownAllowed;
 
     public void ToggleWrap()
     {
@@ -169,6 +174,12 @@ internal sealed class FileViewer : Window
     private void UpdateStatus()
     {
         string wrap = _source.WordWrap ? "wrap on" : "wrap off";
+        if (!_markdownAllowed)
+        {
+            _status.Text = $"F3 close   W {wrap}";
+            return;
+        }
+
         string mode = _rendered ? "rendered" : "source";
         _status.Text = $"F3 close   W {wrap}   M {mode}";
     }
