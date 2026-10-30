@@ -30,6 +30,9 @@ public sealed class FilePanelView : View
     private string? _jump;
     private int _cursor;
     private int _scroll;
+    private BreadcrumbTitle _crumbs;
+    private FolderMeasureResult? _measured;
+    private string? _measuredDirectory;
 
     public FilePanelView(IFileSystem files, IFileOpener opener)
     {
@@ -38,6 +41,8 @@ public sealed class FilePanelView : View
         CanFocus = true;
         BorderStyle = LineStyle.Rounded;
         SetScheme(Graphite.Inactive);
+        HotKeySpecifier = new Rune('\uFFFF');
+        Border.GetOrCreateView().MouseEvent += OnTitleMouse;
     }
 
     /// <summary>Raised when this panel takes the keyboard, so a command can find it after the menu closes.</summary>
@@ -114,6 +119,19 @@ public sealed class FilePanelView : View
     }
 
     public void ToggleHidden() => ShowHidden = !_showHidden;
+
+    /// <summary>Folder sizes from the usage map. Directories in this folder show the size instead of &lt;DIR&gt;.</summary>
+    public void RememberFolderSizes(string directory, FolderMeasureResult result)
+    {
+        if (!string.Equals(_directory, directory, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _measured = result;
+        _measuredDirectory = directory;
+        SetNeedsDraw();
+    }
 
     public IReadOnlyList<FileEntry> Entries => _entries;
 
@@ -356,6 +374,52 @@ public sealed class FilePanelView : View
         return true;
     }
 
+    private void OnTitleMouse(object? sender, Mouse mouse)
+    {
+        if (!mouse.IsSingleClicked)
+        {
+            return;
+        }
+
+        var bounds = Border.GetOrCreateView().FrameToScreen();
+        int localX = mouse.ScreenPosition.X - bounds.X;
+        int localY = mouse.ScreenPosition.Y - bounds.Y;
+        if (localY != 0)
+        {
+            return;
+        }
+
+        if (PathBreadcrumb.Hit(_crumbs, localX - 2) is not { } move)
+        {
+            return;
+        }
+
+        mouse.Handled = true;
+        SetFocus();
+        Apply(move.Directory, move.SelectName, stayOnError: true);
+    }
+
+    /// <summary>The border draws the path two cells in from the left. A click there opens that folder.</summary>
+    private void RefreshTitle()
+    {
+        int columns = Frame.Width > 4 ? Frame.Width - 4 : int.MaxValue;
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        _crumbs = PathBreadcrumb.Layout(_directory, home, columns, static text => text.GetColumns());
+        if (!string.Equals(Title, _crumbs.Text, StringComparison.Ordinal))
+        {
+            Title = _crumbs.Text;
+        }
+    }
+
+    protected override void OnSubViewLayout(LayoutEventArgs args)
+    {
+        base.OnSubViewLayout(args);
+        if (_directory.Length > 0)
+        {
+            RefreshTitle();
+        }
+    }
+
     private bool EnterCursor()
     {
         if (CursorEntry is not { } entry)
@@ -418,6 +482,8 @@ public sealed class FilePanelView : View
             _marks.Clear();
             _scroll = 0;
             _jump = null;
+            _measured = null;
+            _measuredDirectory = null;
         }
 
         _marks.RemoveWhere(name => _entries.All(entry => !EntryNames.Same(entry.Name, name)));
@@ -425,7 +491,7 @@ public sealed class FilePanelView : View
         int selected = selectName is null ? -1 : IndexOf(selectName);
         _cursor = selected >= 0 ? selected : 0;
         KeepCursorVisible(EntryHeight());
-        Title = DisplayPath(_directory);
+        RefreshTitle();
         SetNeedsDraw();
         if (!sameDirectory)
         {
@@ -616,7 +682,7 @@ public sealed class FilePanelView : View
         }
         else if (cursor.Kind == FileKind.Directory)
         {
-            detail += "  <DIR>";
+            detail += "  " + ContainerSize(cursor.Name);
         }
 
         if (cursor.Modified is DateTimeOffset modified)
@@ -647,7 +713,7 @@ public sealed class FilePanelView : View
         return line.ToString();
     }
 
-    private static string FormatRow(FileEntry entry, bool marked, PanelColumns columns)
+    private string FormatRow(FileEntry entry, bool marked, PanelColumns columns)
     {
         string prefix = marked
             ? entry.IsContainer && !entry.IsParent ? "• ▸ " : "•   "
@@ -661,7 +727,7 @@ public sealed class FilePanelView : View
         line.Append(Pad(shown, columns.Name, right: false));
         if (columns.ShowSize)
         {
-            string size = entry.IsParent ? "" : entry.IsContainer ? "<DIR>" : entry.Size is long bytes ? EntryText.FormatSize(bytes) : "";
+            string size = entry.IsParent ? "" : entry.IsContainer ? ContainerSize(entry.Name) : entry.Size is long bytes ? EntryText.FormatSize(bytes) : "";
             line.Append(' ');
             line.Append(Pad(size, PanelColumns.SizeWidth, right: true));
         }
@@ -720,16 +786,38 @@ public sealed class FilePanelView : View
         return -1;
     }
 
-    private static string DisplayPath(string path)
+    private static string DisplayPath(string path) =>
+        PathBreadcrumb.Layout(
+            path,
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            int.MaxValue,
+            static text => text.Length).Text;
+
+    private string ContainerSize(string name)
     {
-        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.Equals(path, home, StringComparison.Ordinal))
+        if (MeasuredChild(name) is not { } child || child.OtherVolume)
         {
-            return "~";
+            return "<DIR>";
         }
 
-        string prefix = home.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        return path.StartsWith(prefix, StringComparison.Ordinal) ? "~" + path[home.Length..] : path;
+        return EntryText.FormatSize(child.Bytes);
     }
 
+    private FolderChild? MeasuredChild(string name)
+    {
+        if (_measured is not { } measured || !string.Equals(_measuredDirectory, _directory, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        foreach (FolderChild child in measured.Children)
+        {
+            if (child.Directory && EntryNames.Same(child.Name, name))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
 }

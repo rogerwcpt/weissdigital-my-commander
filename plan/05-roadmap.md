@@ -60,7 +60,7 @@ not approved yet and is gated by a spike.
 ## Inspect — certificate, JWT, checksum, duplicate
 
 A certificate summary, a JWT decode, a SHA-256 checksum, and duplicate-in-place. The design
-and the limits are in [08-inspect.md](08-inspect.md). The usage map is not part of it.
+and the limits are in [08-inspect.md](08-inspect.md). The usage map is a palette command, in that same note.
 
 ## Later candidates (to pick from, not committed)
 

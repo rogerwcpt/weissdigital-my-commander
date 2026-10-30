@@ -43,4 +43,5 @@ public enum MycCommand
     ViewJwt,
     Checksum,
     Duplicate,
+    UsageMap,
 }

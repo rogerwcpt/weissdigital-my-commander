@@ -177,6 +177,9 @@ internal sealed class CommandRouter
             case MycCommand.Duplicate:
                 Duplicate();
                 break;
+            case MycCommand.UsageMap:
+                ShowUsageMap();
+                break;
             case MycCommand.Refresh:
                 ActivePanel().Refresh();
                 break;
@@ -238,6 +241,31 @@ internal sealed class CommandRouter
 
     private void OnKeyDown(object? sender, Key key)
     {
+        if (_app.TopRunnable is UsageMapDialog map)
+        {
+            if (key == Key.Esc)
+            {
+                key.Handled = true;
+                map.RequestStop();
+                return;
+            }
+
+            if (key == Key.F10 || (key == Key.Q.WithCtrl && !key.IsAlt && !key.IsShift))
+            {
+                key.Handled = true;
+                map.RequestStop();
+                _app.RequestStop(_window);
+                return;
+            }
+
+            if (map.HandleKey(key))
+            {
+                key.Handled = true;
+            }
+
+            return;
+        }
+
         if (_app.TopRunnable is FileViewer viewer)
         {
             if (key == Key.Esc || key == Key.F3)
@@ -389,6 +417,37 @@ internal sealed class CommandRouter
         }
 
         Invoke(spec.Command);
+    }
+
+    private void ShowUsageMap()
+    {
+        FilePanelView panel = ActivePanel();
+        if (panel.Directory.Length == 0)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _viewOpening, 1, 0) != 0)
+        {
+            return;
+        }
+
+        string directory = panel.Directory;
+        bool showHidden = panel.ShowHidden;
+        try
+        {
+            UsageMapDialog.Show(_app, directory, showHidden, _opener, (scanned, result) =>
+            {
+                if (string.Equals(panel.Directory, scanned, StringComparison.Ordinal))
+                {
+                    panel.RememberFolderSizes(scanned, result);
+                }
+            });
+        }
+        finally
+        {
+            _viewOpening = 0;
+        }
     }
 
     private void ShowPalette()

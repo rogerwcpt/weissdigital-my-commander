@@ -13,6 +13,9 @@ namespace Myc.App.Views;
 /// </summary>
 internal static class CommandPalette
 {
+    private const int LabelWidth = 18;
+    private const int KeyWidth = 14;
+
     public static MycCommand? Ask(IApplication app)
     {
         CommandSpec[] all = CommandCatalog.Palette.ToArray();
@@ -34,7 +37,7 @@ internal static class CommandPalette
         var dialog = new Dialog
         {
             Title = "Commands",
-            Width = 72,
+            Width = WidthFor(all),
             Height = 16,
         };
         dialog.SetScheme(Graphite.Bar);
@@ -138,8 +141,20 @@ internal static class CommandPalette
     private static string Row(CommandSpec spec)
     {
         string key = spec.Keys.Length == 0 ? "" : CommandCatalog.Display(spec.Keys[0]);
-        return string.IsNullOrEmpty(key)
-            ? $"{spec.Label,-18}{spec.Summary}"
-            : $"{spec.Label,-18}{key,-14}{spec.Summary}";
+        return $"{spec.Label,-LabelWidth}{key,-KeyWidth}{spec.Summary}";
+    }
+
+    /// <summary>
+    /// Wide enough for the longest row. The extra cells are the border, the list inset, and a gap before the edge.
+    /// </summary>
+    private static int WidthFor(CommandSpec[] commands)
+    {
+        int longest = 0;
+        foreach (CommandSpec spec in commands)
+        {
+            longest = Math.Max(longest, Row(spec).Length);
+        }
+
+        return longest + 6;
     }
 }
