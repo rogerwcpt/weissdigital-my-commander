@@ -242,15 +242,19 @@ public static class CertificateInspector
             : CertificateInspection.AskPassword("Wrong password.");
     }
 
+    /// <summary>
+    /// Ephemeral keys stay out of a keychain. macOS rejects that flag, so the certificate
+    /// is loaded with the default and disposed, which drops the key.
+    /// </summary>
+    private static X509KeyStorageFlags Pkcs12Flags() =>
+        OperatingSystem.IsMacOS() ? X509KeyStorageFlags.DefaultKeySet : X509KeyStorageFlags.EphemeralKeySet;
+
     private static CertificateInspection? TryPkcs12(byte[] data, string? password, DateTimeOffset now)
     {
         X509Certificate2Collection loaded;
         try
         {
-            loaded = X509CertificateLoader.LoadPkcs12Collection(
-                data,
-                password,
-                X509KeyStorageFlags.EphemeralKeySet);
+            loaded = X509CertificateLoader.LoadPkcs12Collection(data, password, Pkcs12Flags());
         }
         catch (CryptographicException)
         {

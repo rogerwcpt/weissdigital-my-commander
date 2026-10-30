@@ -5,7 +5,7 @@
 **Goal:** read a certificate, a JWT, or a checksum without leaving the commander, and duplicate
 the selection in place. Each one is a page or a copy. None of them grows a second application.
 
-The usage map (a panel drawn by size) stays a later milestone. It is not part of this work.
+The usage map is a mode of the same panel. It is described at the end of this note.
 
 ## View certificate
 
@@ -28,8 +28,9 @@ SHA-256 fingerprint, DNS names, whether it is a CA, and key usage. A bundle is n
 A PKCS#12 says whether a private key is inside and never prints the key.
 
 A password-protected PKCS#12 gets one masked prompt. An empty password is tried first, so a
-bag with no password does not ask. The load uses an ephemeral key and is discarded when the
-page is built, so opening a `.pfx` does not write the key into the login keychain.
+bag with no password does not ask. The key is loaded ephemerally where the platform allows
+it. macOS rejects that flag, so the certificate is loaded with the default and disposed when
+the page is built, which drops the key. The page never prints the key.
 
 A private key (`.key`, or a PEM that is only a key) is one line: `Private key. Not shown.`
 OpenSSH certificates are a different format and stay out.
@@ -70,7 +71,20 @@ existing copy job. It has no function key.
 F5 into the same folder still asks `Duplicate as notes copy.md?` and still uses that exact
 name. The palette command is the one that walks to a free name.
 
+## Usage map
+
+The command palette opens a usage map over the panels. It is not on a menu and it has no
+key. A directory's area is its recursive size. A file's area is its own size. Enter drills
+in, Left returns to the parent with the cursor on the folder you left, and tiny items
+become one `other` block. Another volume is one block and is not entered. The scan runs in
+the background. Esc closes the map and cancels a scan still running. Symlinks are not
+followed. Unreadable folders are skipped and the footer counts them. After a scan of the
+folder the panel is showing, the list shows those folder sizes in place of `<DIR>`. Opening
+a panel does not scan.
+
 ## Keys
 
-None of these take a function key. F3 grows the certificate and JWT cases. The palette and
-F1 list the new commands, because both are generated from the command table.
+View certificate, View JWT, and Checksum are on the File menu and in the palette. Duplicate
+is there too. None of them take a function key. The usage map is palette-only. F3 grows the
+certificate and JWT cases. The palette and F1 list the commands, because both are generated
+from the command table.

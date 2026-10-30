@@ -59,7 +59,11 @@ public class CommandCatalogTests
         Assert.Contains("View JWT", help);
         Assert.Contains("Checksum", help);
         Assert.Contains("Duplicate", help);
+        Assert.Contains("Usage map", help);
+        Assert.Contains("Show this folder as a size map", help);
+        Assert.DoesNotContain("Ctrl+T", help);
         Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.ViewCertificate);
+        Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.UsageMap);
         Assert.Contains(CommandCatalog.Palette, spec => spec.Command == MycCommand.Duplicate);
         Assert.True(CommandCatalog.Find(KeyToken.F4)!.Available);
         Assert.Equal(MycCommand.Edit, CommandCatalog.Find(KeyToken.F4)!.Command);

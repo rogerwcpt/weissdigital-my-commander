@@ -57,6 +57,7 @@ public static class CommandCatalog
         new(MycCommand.ViewJwt, "View JWT", "Decode a JSON Web Token", true),
         new(MycCommand.Checksum, "Checksum", "SHA-256 of the selection", true),
         new(MycCommand.Duplicate, "Duplicate", "Copy the selection into this folder", true),
+        new(MycCommand.UsageMap, "Usage map", "Show this folder as a size map", true),
     ];
 
     /// <summary>Commands the palette lists, in the order they appear with an empty filter.</summary>
@@ -96,6 +97,7 @@ public static class CommandCatalog
         Spec(MycCommand.ViewJwt),
         Spec(MycCommand.Checksum),
         Spec(MycCommand.Duplicate),
+        Spec(MycCommand.UsageMap),
     ];
 
     public static IReadOnlyList<CommandSpec> Bar { get; } =
